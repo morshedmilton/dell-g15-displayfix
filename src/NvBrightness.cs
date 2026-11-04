@@ -1,4 +1,4 @@
-// NvBrightness - tray brightness control that works on either GPU of a
+﻿// NvBrightness - tray brightness control that works on either GPU of a
 // hybrid-graphics laptop.
 //
 // Why it exists: with the panel muxed to the dGPU, Windows' brightness API
@@ -62,14 +62,18 @@ namespace NvBrightness
         // without rebuilding.
         internal const string IniPath = @"C:\ProgramData\DisplayFix\hotkeys.ini";
 
+        // Deliberately empty. Claiming a function-row key overrides whatever it
+        // already does natively, and the real layout differs between keyboards -
+        // guessing it breaks keys that were working. Nothing is taken over unless
+        // the user writes an explicit entry in hotkeys.ini after checking.
         internal static readonly string[] DefaultHotkeys = new[]
         {
-            "F1=volume_mute",
-            "F2=volume_down",
-            "F3=volume_up",
-            "F6=brightness_down",
-            "F7=brightness_up",
-            "F9=media_play"
+            "# DisplayFix - function row bindings (none by default)",
+            "# Example, only after verifying the key:",
+            "#   F6=brightness_down",
+            "#   F7=brightness_up",
+            "# Actions: brightness_up, brightness_down, volume_up, volume_down,",
+            "#          volume_mute, media_play, media_next, media_prev, media_stop"
         };
 
         private sealed class HotkeyEntry
