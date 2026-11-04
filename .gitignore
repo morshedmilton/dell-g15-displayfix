@@ -1,0 +1,8 @@
+﻿# build output that should never be committed
+obj/
+*.pdb
+*.user
+
+# local notes
+notes.md
+*.local.md
