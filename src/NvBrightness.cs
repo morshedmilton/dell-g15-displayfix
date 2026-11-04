@@ -39,6 +39,13 @@ namespace NvBrightness
         internal const int MinLevel = 10;
         internal const int MaxLevel = 100;
 
+        // Measured on this machine: the NVIDIA backend reports back 8 units lower
+        // than the value written (write 100 -> reads 92, write 50 -> reads 42).
+        // Without this compensation a request of 10 would leave the panel at 2,
+        // which looks like a dead screen. The offset is applied on the NVIDIA
+        // write path only - the Intel backend round-trips exactly.
+        internal const int NvWriteOffset = 8;
+
         internal static int Clamp(int v)
         {
             if (v < MinLevel) return MinLevel;
@@ -46,9 +53,34 @@ namespace NvBrightness
             return v;
         }
 
+        internal static bool IsElevated()
+        {
+            try
+            {
+                var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var p = new System.Security.Principal.WindowsPrincipal(id);
+                return p.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch { return false; }
+        }
+
         [STAThread]
         private static void Main(string[] args)
         {
+            if (args != null && args.Length > 0 && args[0] == "--set" && args.Length > 1)
+            {
+                int want;
+                if (!int.TryParse(args[1], out want)) want = 50;
+                want = Clamp(want);
+                bool ok = Backend.Set(want);
+                int readBack = Backend.Get();
+                string line = "set(" + want + ")=" + ok + " backend=" + Backend.Name() +
+                              " readBack=" + readBack + " elevated=" + IsElevated();
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nvbrightness-set.txt"), line);
+                return;
+            }
+
             if (args != null && args.Length > 0 && args[0] == "--selftest")
             {
                 var sb = new System.Text.StringBuilder();
@@ -195,6 +227,11 @@ namespace NvBrightness
                 {
                     try
                     {
+                        // compensate the measured offset so that the level the user
+                        // asked for is the level the panel actually ends up at
+                        int nvLevel = level + Program.NvWriteOffset;
+                        if (nvLevel > Program.MaxLevel) nvLevel = Program.MaxLevel;
+
                         using (var s = new ManagementObjectSearcher(
                             "root\\wmi", "SELECT * FROM NvWmiBrightness"))
                         {
@@ -203,7 +240,7 @@ namespace NvBrightness
                                 using (ManagementBaseObject inP = o.GetMethodParameters("NvGetSetBrightnessLevel"))
                                 {
                                     inP["inArg"] = (uint)1;
-                                    inP["Level"] = (uint)level;
+                                    inP["Level"] = (uint)nvLevel;
                                     using (ManagementBaseObject outP = o.InvokeMethod("NvGetSetBrightnessLevel", inP, null))
                                     {
                                         ok = true;
