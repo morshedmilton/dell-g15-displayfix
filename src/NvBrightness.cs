@@ -463,12 +463,13 @@ namespace NvBrightness
             {
                 int step = int.Parse(Step);
 
-                if (id == HotkeyUp) { Apply(_level + step); _tray.Text = BuildTooltip(); return; }
-                if (id == HotkeyDown) { Apply(_level - step); _tray.Text = BuildTooltip(); return; }
+                if (id == HotkeyUp) { LogSafe("hotkey ctrl+alt+up"); Apply(_level + step); _tray.Text = BuildTooltip(); return; }
+                if (id == HotkeyDown) { LogSafe("hotkey ctrl+alt+down"); Apply(_level - step); _tray.Text = BuildTooltip(); return; }
 
                 foreach (HotkeyEntry k in _keys)
                 {
                     if (k.Id != id) continue;
+                    LogSafe("hotkey " + k.Key + " -> " + k.Action);
                     switch (k.Action)
                     {
                         case "brightness_up":   Apply(_level + step); _tray.Text = BuildTooltip(); break;
@@ -514,7 +515,9 @@ namespace NvBrightness
             private void Apply(int value)
             {
                 int clamped = Clamp(value);
-                if (Backend.Set(clamped))
+                bool ok = Backend.Set(clamped);
+                LogSafe("apply " + clamped + " -> " + ok + " backend=" + Backend.Name());
+                if (ok)
                 {
                     _level = clamped;
                     _tray.Text = BuildTooltip();
