@@ -18,6 +18,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -299,6 +300,7 @@ namespace NvBrightness
 
                 _hook = new HotkeyWindow();
                 _hook.Hotkey += OnHotkey;
+                _hook.RawBrightness += OnRawBrightness;
                 _hook.Register(HotkeyUp, Keys.Up);
                 _hook.Register(HotkeyDown, Keys.Down);
 
@@ -387,7 +389,15 @@ namespace NvBrightness
                     _hook.Unregister(HotkeyF6);
                     _hook.Unregister(HotkeyF7);
                 }
+                _hook.EnableRawInput(want);
                 _fKeysOn = want;
+            }
+
+            private void OnRawBrightness(int direction)
+            {
+                int step = int.Parse(Step);
+                Apply(_level + direction * step);
+                _tray.Text = BuildTooltip();
             }
 
             private void Apply(int value)
@@ -491,6 +501,62 @@ namespace NvBrightness
                 UnregisterHotKey(Handle, id);
             }
 
+            // ---- raw HID: the keyboard's dedicated brightness keys do not arrive as
+            // ---- keystrokes at all, they arrive as HID consumer-page usages, which
+            // ---- RegisterHotKey can never see. This catches them.
+
+            internal void EnableRawInput(bool on)
+            {
+                var rid = new RAWINPUTDEVICE[1];
+                rid[0].usUsagePage = 0x0C;      // consumer page
+                rid[0].usUsage = 0x01;          // consumer control
+                rid[0].dwFlags = on ? RIDEV_INPUTSINK : RIDEV_REMOVE;
+                rid[0].hwndTarget = on ? Handle : IntPtr.Zero;
+                RegisterRawInputDevices(rid, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)));
+            }
+
+            private void HandleRawInput(IntPtr lParam)
+            {
+                uint size = 0;
+                uint headerSize = (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER));
+                GetRawInputData(lParam, RID_INPUT, IntPtr.Zero, ref size, headerSize);
+                if (size == 0 || size > 4096) return;
+
+                IntPtr buf = Marshal.AllocHGlobal((int)size);
+                try
+                {
+                    if (GetRawInputData(lParam, RID_INPUT, buf, ref size, headerSize) != size) return;
+
+                    uint type = (uint)Marshal.ReadInt32(buf, 0);
+                    if (type != RIM_TYPEHID) return;
+
+                    int off = (int)headerSize;                 // start of the union
+                    int sizeHid = Marshal.ReadInt32(buf, off);
+                    int count = Marshal.ReadInt32(buf, off + 4);
+                    int dataOff = off + 8;
+
+                    if (sizeHid <= 0 || count <= 0 || sizeHid > 64 || count > 16) return;
+                    if (dataOff + sizeHid * count > size) return;
+
+                    for (int r = 0; r < count; r++)
+                    {
+                        for (int b = 0; b + 1 < sizeHid; b += 2)
+                        {
+                            int usage = Marshal.ReadByte(buf, dataOff + r * sizeHid + b);
+                            int page = Marshal.ReadByte(buf, dataOff + r * sizeHid + b + 1);
+                            if (page != 0x0C) continue;
+
+                            var h = RawBrightness;
+                            if (usage == 0x6F && h != null) h(+1);   // brightness increment
+                            if (usage == 0x70 && h != null) h(-1);   // brightness decrement
+                        }
+                    }
+                }
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+
+            internal event Action<int> RawBrightness;
+
             private const uint MOD_ALT = 0x0001;
             private const uint MOD_CONTROL = 0x0002;
 
@@ -508,8 +574,45 @@ namespace NvBrightness
                     if (h != null) h(m.WParam.ToInt32());
                     return;
                 }
+                if (m.Msg == WM_INPUT)
+                {
+                    HandleRawInput(m.LParam);
+                    DefWndProc(ref m);
+                    return;
+                }
                 base.WndProc(ref m);
             }
+
+            private const int WM_INPUT = 0x00FF;
+            private const uint RID_INPUT = 0x10000003;
+            private const uint RIM_TYPEHID = 2;
+            private const uint RIDEV_INPUTSINK = 0x00000100;
+            private const uint RIDEV_REMOVE = 0x00000001;
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct RAWINPUTDEVICE
+            {
+                public ushort usUsagePage;
+                public ushort usUsage;
+                public uint dwFlags;
+                public IntPtr hwndTarget;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct RAWINPUTHEADER
+            {
+                public uint dwType;
+                public uint dwSize;
+                public IntPtr hDevice;
+                public IntPtr wParam;
+            }
+
+            [DllImport("user32.dll", SetLastError = true)]
+            private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint num, uint size);
+
+            [DllImport("user32.dll", SetLastError = true)]
+            private static extern uint GetRawInputData(IntPtr hRawInput, uint command,
+                IntPtr data, ref uint size, uint headerSize);
         }
 
         private sealed class PopupForm : Form
