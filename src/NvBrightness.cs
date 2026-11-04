@@ -17,6 +17,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -54,6 +55,94 @@ namespace NvBrightness
             if (v < MinLevel) return MinLevel;
             if (v > MaxLevel) return MaxLevel;
             return v;
+        }
+
+        // Which function-row keys should be taken over, and what each one does.
+        // Stored in C:\ProgramData\DisplayFix\hotkeys.ini so it can be edited
+        // without rebuilding.
+        internal const string IniPath = @"C:\ProgramData\DisplayFix\hotkeys.ini";
+
+        internal static readonly string[] DefaultHotkeys = new[]
+        {
+            "F1=volume_mute",
+            "F2=volume_down",
+            "F3=volume_up",
+            "F6=brightness_down",
+            "F7=brightness_up",
+            "F9=media_play"
+        };
+
+        private sealed class HotkeyEntry
+        {
+            public int Id;
+            public ushort Vk;
+            public string Key;
+            public string Action;
+        }
+
+        private static System.Collections.Generic.List<HotkeyEntry> _keys;
+
+        private static ushort KeyToVk(string key)
+        {
+            string k = key.Trim().ToUpperInvariant();
+            if (k.Length == 2 && k[0] == 'F')
+            {
+                int n;
+                if (int.TryParse(k.Substring(1), out n) && n >= 1 && n <= 12)
+                    return (ushort)(0x70 + n - 1);          // VK_F1 = 0x70
+            }
+            return 0;
+        }
+
+        private static void LoadHotkeys()
+        {
+            _keys = new System.Collections.Generic.List<HotkeyEntry>();
+
+            try
+            {
+                if (!File.Exists(IniPath))
+                    File.WriteAllLines(IniPath, DefaultHotkeys);
+            }
+            catch { }
+
+            try
+            {
+                foreach (string raw in File.ReadAllLines(IniPath))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#") || line.StartsWith(";")) continue;
+                    int eq = line.IndexOf('=');
+                    if (eq < 1) continue;
+
+                    string key = line.Substring(0, eq).Trim();
+                    string action = line.Substring(eq + 1).Trim().ToLowerInvariant();
+                    ushort vk = KeyToVk(key);
+                    if (vk == 0 || string.IsNullOrEmpty(action)) continue;
+
+                    _keys.Add(new HotkeyEntry
+                    {
+                        Id = 0xA000 + _keys.Count,
+                        Vk = vk,
+                        Key = key.ToUpperInvariant(),
+                        Action = action
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                LogSafe("hotkeys.ini could not be read: " + ex.Message);
+            }
+        }
+
+        private static void LogSafe(string s)
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(@"C:\ProgramData\DisplayFix\logs");
+                File.AppendAllText(@"C:\ProgramData\DisplayFix\logs\app.log",
+                    DateTime.Now.ToString("HH:mm:ss") + "  " + s + Environment.NewLine);
+            }
+            catch { }
         }
 
         internal static bool IsElevated()
@@ -267,7 +356,6 @@ namespace NvBrightness
             private readonly HotkeyWindow _hook;
             private readonly System.Windows.Forms.Timer _poll;
             private int _level = 50;
-            private bool _fKeysOn;
             private PopupForm _popup;
 
             internal TrayContext()
@@ -303,15 +391,21 @@ namespace NvBrightness
                 _hook.RawBrightness += OnRawBrightness;
                 _hook.Register(HotkeyUp, Keys.Up);
                 _hook.Register(HotkeyDown, Keys.Down);
+                _hook.EnableRawInput(true);
 
-                // On this keyboard F6 / F7 are the brightness keys. Dell's ACPI path
-                // for them dies once the panel is on the dGPU, so take them over -
-                // but only while the NVIDIA backend is in use, otherwise we would
-                // fight the working Intel path.
-                SyncFKeys();
+                // Take over the function-row keys listed in hotkeys.ini and give them
+                // the behaviour they have in the keyboard's media mode. This exists
+                // because Fn-lock is all-or-nothing: turning it on to get plain-F6
+                // brightness also takes the media functions off every other key.
+                LoadHotkeys();
+                foreach (HotkeyEntry k in _keys)
+                {
+                    _hook.RegisterPlain(k.Id, (Keys)k.Vk);
+                    LogSafe("bound " + k.Key + " -> " + k.Action);
+                }
 
                 _poll = new System.Windows.Forms.Timer { Interval = 10000 };
-                _poll.Tick += delegate { _tray.Text = BuildTooltip(); SyncFKeys(); };
+                _poll.Tick += delegate { _tray.Text = BuildTooltip(); };
                 _poll.Start();
             }
 
@@ -368,29 +462,46 @@ namespace NvBrightness
             private void OnHotkey(int id)
             {
                 int step = int.Parse(Step);
-                if (id == HotkeyF6) { Apply(_level - step); _tray.Text = BuildTooltip(); return; }
-                if (id == HotkeyF7) { Apply(_level + step); _tray.Text = BuildTooltip(); return; }
-                Apply(_level + (id == HotkeyUp ? step : -step));
-                _tray.Text = BuildTooltip();
+
+                if (id == HotkeyUp) { Apply(_level + step); _tray.Text = BuildTooltip(); return; }
+                if (id == HotkeyDown) { Apply(_level - step); _tray.Text = BuildTooltip(); return; }
+
+                foreach (HotkeyEntry k in _keys)
+                {
+                    if (k.Id != id) continue;
+                    switch (k.Action)
+                    {
+                        case "brightness_up":   Apply(_level + step); _tray.Text = BuildTooltip(); break;
+                        case "brightness_down": Apply(_level - step); _tray.Text = BuildTooltip(); break;
+                        case "volume_up":       SendVk(VK_VOLUME_UP); break;
+                        case "volume_down":     SendVk(VK_VOLUME_DOWN); break;
+                        case "volume_mute":     SendVk(VK_VOLUME_MUTE); break;
+                        case "media_play":      SendVk(VK_MEDIA_PLAY_PAUSE); break;
+                        case "media_next":      SendVk(VK_MEDIA_NEXT); break;
+                        case "media_prev":      SendVk(VK_MEDIA_PREV); break;
+                        case "media_stop":      SendVk(VK_MEDIA_STOP); break;
+                    }
+                    return;
+                }
             }
 
-            private void SyncFKeys()
-            {
-                bool want = Backend.Name() == "NVIDIA";
-                if (want == _fKeysOn) return;
+            private const ushort VK_VOLUME_MUTE = 0xAD;
+            private const ushort VK_VOLUME_DOWN = 0xAE;
+            private const ushort VK_VOLUME_UP = 0xAF;
+            private const ushort VK_MEDIA_NEXT = 0xB0;
+            private const ushort VK_MEDIA_PREV = 0xB1;
+            private const ushort VK_MEDIA_STOP = 0xB2;
+            private const ushort VK_MEDIA_PLAY_PAUSE = 0xB3;
 
-                if (want)
-                {
-                    _hook.RegisterPlain(HotkeyF6, Keys.F6);
-                    _hook.RegisterPlain(HotkeyF7, Keys.F7);
-                }
-                else
-                {
-                    _hook.Unregister(HotkeyF6);
-                    _hook.Unregister(HotkeyF7);
-                }
-                _hook.EnableRawInput(want);
-                _fKeysOn = want;
+            private static void SendVk(ushort vk)
+            {
+                var inputs = new INPUT[2];
+                inputs[0].type = INPUT_KEYBOARD;
+                inputs[0].u.ki.wVk = vk;
+                inputs[1].type = INPUT_KEYBOARD;
+                inputs[1].u.ki.wVk = vk;
+                inputs[1].u.ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
             }
 
             private void OnRawBrightness(int direction)
@@ -458,6 +569,42 @@ namespace NvBrightness
                 }
                 return Icon.FromHandle(bmp.GetHicon());
             }
+
+            private const uint INPUT_KEYBOARD = 1;
+            private const uint KEYEVENTF_KEYUP = 0x0002;
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MOUSEINPUT
+            {
+                public int dx; public int dy;
+                public uint mouseData; public uint dwFlags; public uint time;
+                public IntPtr dwExtraInfo;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct KEYBDINPUT
+            {
+                public ushort wVk; public ushort wScan;
+                public uint dwFlags; public uint time;
+                public IntPtr dwExtraInfo;
+            }
+
+            [StructLayout(LayoutKind.Explicit)]
+            private struct INPUTUNION
+            {
+                [FieldOffset(0)] public MOUSEINPUT mi;
+                [FieldOffset(0)] public KEYBDINPUT ki;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct INPUT
+            {
+                public uint type;
+                public INPUTUNION u;
+            }
+
+            [DllImport("user32.dll", SetLastError = true)]
+            private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
             protected override void ExitThreadCore()
             {
