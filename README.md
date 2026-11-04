@@ -7,7 +7,7 @@
   <img alt="requires" src="https://img.shields.io/badge/requires-.NET%20Framework%204.8-512BD4?logo=dotnet&logoColor=white">
   <img alt="build" src="https://img.shields.io/badge/build-csc.exe%20only-success">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="version" src="https://img.shields.io/badge/version-1.0.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-1.0.1-informational">
 </p>
 
 <p align="center">
@@ -140,14 +140,16 @@ No SDK, no runtime install, no dependencies. `build.ps1` uses
 
 ```
 C:\ProgramData\DisplayFix\
-  PhantomGuard.exe          scheduled task "DisplayFixGuard" (logon, highest privileges)
-  NvBrightness.exe          HKCU Run entry "DisplayFixBrightness"
+  PhantomGuard.exe          scheduled task "DisplayFixGuard"      (logon, highest privileges)
+  NvBrightness.exe          scheduled task "DisplayFixBrightness" (logon, highest privileges)
   logs\guard.log            rolling, 1 MB cap
 ```
 
-The guard needs administrator rights because it disables and re-enables a device;
-that is why it runs as a scheduled task with `RunLevel Highest` instead of asking
-for UAC at every logon.
+Both run as scheduled tasks with `RunLevel Highest`, so neither asks for UAC at logon.
+That is not laziness: the guard must disable and re-enable a device, and the NVIDIA
+brightness WMI provider refuses access to a non-elevated caller once the panel has muxed
+to the dGPU. A per-user `Run` entry looked tidier and silently broke brightness — that
+was the 1.0.0 bug fixed in 1.0.1.
 
 ---
 

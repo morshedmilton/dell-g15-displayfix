@@ -6,6 +6,44 @@ the rebuilt executables attached.**
 
 ---
 
+## [1.0.1] — 2026-11-05
+
+Field fixes found during the first real game session audit. Both are bugs in 1.0.0,
+not cosmetic changes.
+
+### Fixed
+
+- **Brightness control silently stopped working after the first mux.**
+  `root\wmi:NvWmiBrightness` starts refusing access to a non-elevated caller once the
+  panel has been muxed and the duplicate cleared. The tray app ran from an `HKCU\...\Run`
+  entry, so it could no longer read or write — it failed quietly and kept showing a stale
+  value.
+  *Changed:* the tray app now runs from scheduled task **`DisplayFixBrightness`**
+  (at logon, `RunLevel Highest`). The old Run entry is removed on install.
+  Verified: `set(50)=True elevated=True`.
+
+- **The brightness floor was weaker than it looked.**
+  The NVIDIA backend reports back **8 units lower** than the value written
+  (write 100 → reads 92, write 50 → reads 42, measured across nine points).
+  A floor of 10 therefore left the panel at an actual **2** — still close to a black
+  screen.
+  *Changed:* the NVIDIA write path adds the measured +8 offset before clamping, so the
+  floor of 10 now lands at a real 10.
+
+### Added
+
+- `--set <n>` command line switch, so brightness can be driven and verified without
+  clicking the tray icon.
+- `--selftest` now also reports the detected backend and current level.
+
+### Known limitation
+
+- The NVIDIA backend's read-back is noisy and lags a step behind a write. The tray icon
+  shows the last value *you* set rather than re-reading the device, which avoids the
+  flicker; treat the tooltip as a request log, not a measurement.
+
+---
+
 ## [1.0.0] — 2026-11-05
 
 First public release. Two tools, both built from what was measured on the machine
