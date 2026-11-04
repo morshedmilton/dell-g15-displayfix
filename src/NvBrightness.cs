@@ -28,6 +28,8 @@ namespace NvBrightness
     {
         private const int HotkeyUp = 0x9001;
         private const int HotkeyDown = 0x9002;
+        private const int HotkeyF6 = 0x9003;      // brightness down on this keyboard
+        private const int HotkeyF7 = 0x9004;      // brightness up on this keyboard
         private const int WmHotkey = 0x0312;
         private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string RunValue = "DisplayFixBrightness";
@@ -264,6 +266,7 @@ namespace NvBrightness
             private readonly HotkeyWindow _hook;
             private readonly System.Windows.Forms.Timer _poll;
             private int _level = 50;
+            private bool _fKeysOn;
             private PopupForm _popup;
 
             internal TrayContext()
@@ -299,8 +302,14 @@ namespace NvBrightness
                 _hook.Register(HotkeyUp, Keys.Up);
                 _hook.Register(HotkeyDown, Keys.Down);
 
+                // On this keyboard F6 / F7 are the brightness keys. Dell's ACPI path
+                // for them dies once the panel is on the dGPU, so take them over -
+                // but only while the NVIDIA backend is in use, otherwise we would
+                // fight the working Intel path.
+                SyncFKeys();
+
                 _poll = new System.Windows.Forms.Timer { Interval = 10000 };
-                _poll.Tick += delegate { _tray.Text = BuildTooltip(); };
+                _poll.Tick += delegate { _tray.Text = BuildTooltip(); SyncFKeys(); };
                 _poll.Start();
             }
 
@@ -336,7 +345,7 @@ namespace NvBrightness
                 };
                 m.Items.Add(auto);
 
-                m.Items.Add(new ToolStripMenuItem("Ctrl+Alt+\u2191 / \u2193  =  \u00b1" + Step + "%") { Enabled = false });
+                m.Items.Add(new ToolStripMenuItem("F6 / F7  and  Ctrl+Alt+\u2191 / \u2193  =  \u00b1" + Step + "%") { Enabled = false });
 
                 m.Items.Add(new ToolStripSeparator());
                 var exit = new ToolStripMenuItem("Exit");
@@ -357,8 +366,28 @@ namespace NvBrightness
             private void OnHotkey(int id)
             {
                 int step = int.Parse(Step);
+                if (id == HotkeyF6) { Apply(_level - step); _tray.Text = BuildTooltip(); return; }
+                if (id == HotkeyF7) { Apply(_level + step); _tray.Text = BuildTooltip(); return; }
                 Apply(_level + (id == HotkeyUp ? step : -step));
                 _tray.Text = BuildTooltip();
+            }
+
+            private void SyncFKeys()
+            {
+                bool want = Backend.Name() == "NVIDIA";
+                if (want == _fKeysOn) return;
+
+                if (want)
+                {
+                    _hook.RegisterPlain(HotkeyF6, Keys.F6);
+                    _hook.RegisterPlain(HotkeyF7, Keys.F7);
+                }
+                else
+                {
+                    _hook.Unregister(HotkeyF6);
+                    _hook.Unregister(HotkeyF7);
+                }
+                _fKeysOn = want;
             }
 
             private void Apply(int value)
@@ -452,6 +481,25 @@ namespace NvBrightness
                 RegisterHotKey(Handle, id, MOD_CONTROL | MOD_ALT, (uint)key);
             }
 
+            internal void RegisterPlain(int id, Keys key)
+            {
+                RegisterHotKey(Handle, id, 0, (uint)key);
+            }
+
+            internal void Unregister(int id)
+            {
+                UnregisterHotKey(Handle, id);
+            }
+
+            private const uint MOD_ALT = 0x0001;
+            private const uint MOD_CONTROL = 0x0002;
+
+            [System.Runtime.InteropServices.DllImport("user32.dll")]
+            private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+            [System.Runtime.InteropServices.DllImport("user32.dll")]
+            private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
             protected override void WndProc(ref Message m)
             {
                 if (m.Msg == WmHotkey)
@@ -462,15 +510,7 @@ namespace NvBrightness
                 }
                 base.WndProc(ref m);
             }
-
-            private const uint MOD_ALT = 0x0001;
-            private const uint MOD_CONTROL = 0x0002;
-
-            [System.Runtime.InteropServices.DllImport("user32.dll")]
-            private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         }
-
-        // ---------------- slider popup ----------------
 
         private sealed class PopupForm : Form
         {
