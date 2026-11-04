@@ -37,8 +37,8 @@ namespace PhantomGuard
 
         private const int PollMs = 8000;
         private const int Confirmations = 2;
-        private const int CooldownMs = 120000;
-        private const int MaxRepairsPerHour = 3;
+        private const int CooldownMs = 60000;          // minimum gap between two repairs
+        private const int MaxAttemptsPerEpisode = 3;   // per switch, not per hour
         private const int DisableWaitMs = 4000;
         private const int EnableWaitMs = 7000;
 
@@ -65,7 +65,16 @@ namespace PhantomGuard
 
                 int hits = 0;
                 DateTime lastRepair = DateTime.MinValue;
-                var repairTimes = new System.Collections.Generic.Queue<DateTime>();
+
+                // No hourly cap any more. Instead the guard repairs once per "episode":
+                // an episode opens when a duplicate appears and closes when the display
+                // state is clean again. Every switch is its own episode, so switching
+                // as often as you like is fine. Inside one episode it retries at most
+                // MaxAttemptsPerEpisode times, so a repair that never works cannot turn
+                // into an endless disable/enable loop.
+                bool episodeOpen = false;
+                int attempts = 0;
+                bool gaveUpLogged = false;
 
                 while (true)
                 {
@@ -81,6 +90,14 @@ namespace PhantomGuard
                     {
                         if (hits > 0) Log("healthy again - " + detail);
                         hits = 0;
+
+                        if (episodeOpen)
+                        {
+                            Log("episode closed after " + attempts + " repair(s)");
+                            episodeOpen = false;
+                            attempts = 0;
+                            gaveUpLogged = false;
+                        }
                     }
                     else if (!allInternal)
                     {
@@ -90,32 +107,42 @@ namespace PhantomGuard
                     else
                     {
                         hits++;
+
+                        if (!episodeOpen)
+                        {
+                            episodeOpen = true;
+                            attempts = 0;
+                            gaveUpLogged = false;
+                            Log("episode open - " + detail);
+                        }
+
                         Log("duplicate internal path detected (" + hits + "/" + Confirmations +
                             ") " + detail);
-
-                        // age out old repairs
-                        while (repairTimes.Count > 0 &&
-                               (DateTime.UtcNow - repairTimes.Peek()).TotalMilliseconds > 3600000)
-                            repairTimes.Dequeue();
 
                         if (hits >= Confirmations)
                         {
                             TimeSpan since = DateTime.UtcNow - lastRepair;
-                            if (since.TotalMilliseconds < CooldownMs)
+
+                            if (attempts >= MaxAttemptsPerEpisode)
                             {
-                                Log("cooldown active (" + (int)since.TotalSeconds + "s) - waiting");
+                                if (!gaveUpLogged)
+                                {
+                                    Log("repair limit reached for this episode (" +
+                                        attempts + ") - will try again once the display " +
+                                        "state is clean");
+                                    gaveUpLogged = true;
+                                }
                             }
-                            else if (repairTimes.Count >= MaxRepairsPerHour)
+                            else if (since.TotalMilliseconds < CooldownMs)
                             {
-                                Log("rate limit reached (" + repairTimes.Count + "/h) - not repairing");
-                                hits = 0;
+                                Log("cooling down (" + (int)since.TotalSeconds + "s) - waiting");
                             }
                             else
                             {
-                                Log("REPAIR starting");
+                                Log("REPAIR starting (attempt " + (attempts + 1) + ")");
                                 bool ok = Repair();
                                 lastRepair = DateTime.UtcNow;
-                                repairTimes.Enqueue(lastRepair);
+                                attempts++;
                                 hits = 0;
 
                                 int after; bool ai; string d2;

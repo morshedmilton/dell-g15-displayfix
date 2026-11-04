@@ -78,12 +78,19 @@ flowchart TD
 | Rail | Value | Why |
 |---|---|---|
 | Confirmations before acting | 2 | never reacts to a transient enumeration |
-| Cooldown between repairs | 120 s | prevents a repair loop |
-| Repairs per rolling hour | 3 | hard ceiling |
+| Minimum gap between repairs | 60 s | prevents thrash if the state flaps |
+| Attempts per switch | 3 | a repair that cannot work stops instead of looping |
+| Hourly cap | **none** | every display switch is its own episode, so switching often is fine |
 | External monitor present | never acts | would otherwise blink a real screen |
 | NVIDIA adapter | never touched | only the Intel side is toggled |
 | Single instance | mutex | two guards cannot fight |
 | Every decision | logged | `C:\ProgramData\DisplayFix\logs\guard.log` |
+
+**How the limit works now.** An *episode* opens when a duplicate appears and closes when the
+display state is clean again. Each switch is a fresh episode with a fresh budget of three
+attempts, so there is no hourly ceiling to run into. The three-attempt cap exists only so
+that a duplicate the repair cannot clear does not turn into an endless disable/enable loop;
+it is reset the moment the display state comes back clean.
 
 ### 2 · NvBrightness — puts the backlight back under control
 

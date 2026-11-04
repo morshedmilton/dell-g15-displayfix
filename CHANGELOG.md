@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project. Format loosely follows Keep a Changelog;
 versions follow SemVer. **Every patch gets its own git tag and GitHub Release with
@@ -6,11 +6,11 @@ the rebuilt executables attached.**
 
 ---
 
-## [1.1.0] — 2026-11-05
+## [1.1.0] â€” 2026-11-05
 
 ### Added
 
-- **`hotkeys.ini` — the function row becomes configurable.**
+- **`hotkeys.ini` â€” the function row becomes configurable.**
   Turning on Fn-lock to get plain-F6 brightness works, but Fn-lock is all-or-nothing:
   it also moves the media functions on every other key behind Fn. There is no per-key
   setting in the BIOS or the EC, so the app now does it.
@@ -29,7 +29,7 @@ the rebuilt executables attached.**
 
   Actions: `brightness_up`, `brightness_down`, `volume_up`, `volume_down`,
   `volume_mute`, `media_play`, `media_next`, `media_prev`, `media_stop`.
-  Keys: `F1`–`F12`. Edit the file and restart the task to change it.
+  Keys: `F1`â€“`F12`. Edit the file and restart the task to change it.
 
 - `app.log` records which keys were bound at startup, so a silent failure is visible.
 
@@ -42,7 +42,7 @@ the rebuilt executables attached.**
 ### Why not intercept the media code instead
 
 Measured with a raw-input probe, and this is the important part: with Fn-lock in media
-mode, pressing F6 produces **no Windows input event at all** — not a keystroke, not an
+mode, pressing F6 produces **no Windows input event at all** â€” not a keystroke, not an
 HID consumer usage, nothing. It is handled inside the embedded controller and never
 reaches the OS. Only Fn+F6, which is a real F6 keystroke, is visible.
 
@@ -51,12 +51,12 @@ Fn-lock direction is the only workable route.
 
 ---
 
-## [1.0.3] — 2026-11-05
+## [1.0.3] â€” 2026-11-05
 
 ### Fixed
 
 - **F6 / F7 only worked with Fn held.** The keyboard's dedicated brightness keys do not
-  produce a keystroke at all — they emit an **HID Consumer Page usage**
+  produce a keystroke at all â€” they emit an **HID Consumer Page usage**
   (`0x0C:0x006F` increment, `0x0C:0x0070` decrement). `RegisterHotKey` can only see
   keystrokes, so it never fired. Pressing Fn+F6 produced a literal `F6` keystroke, which
   is why that combination did work.
@@ -73,15 +73,15 @@ plain F6/F7 hotkeys were: in Optimus the Intel path owns those keys.
 
 ---
 
-## [1.0.2] — 2026-11-05
+## [1.0.2] â€” 2026-11-05
 
 ### Added
 
 - **F6 / F7 now control brightness**, matching the legends printed on this keyboard
   (F6 down, F7 up). They are registered as global hotkeys **only while the NVIDIA
-  backend is the active one** — in Optimus the Intel path already handles them, so
+  backend is the active one** â€” in Optimus the Intel path already handles them, so
   taking them over there would double-fire.
-- `Ctrl+Alt+↑ / ↓` still work as before, in both modes.
+- `Ctrl+Alt+â†‘ / â†“` still work as before, in both modes.
 
 ### Note
 
@@ -97,7 +97,7 @@ app (`RegisterHotKey` on F6 and F7 from a second process fails).
 
 ---
 
-## [1.0.1] — 2026-11-05
+## [1.0.1] â€” 2026-11-05
 
 Field fixes found during the first real game session audit. Both are bugs in 1.0.0,
 not cosmetic changes.
@@ -107,7 +107,7 @@ not cosmetic changes.
 - **Brightness control silently stopped working after the first mux.**
   `root\wmi:NvWmiBrightness` starts refusing access to a non-elevated caller once the
   panel has been muxed and the duplicate cleared. The tray app ran from an `HKCU\...\Run`
-  entry, so it could no longer read or write — it failed quietly and kept showing a stale
+  entry, so it could no longer read or write â€” it failed quietly and kept showing a stale
   value.
   *Changed:* the tray app now runs from scheduled task **`DisplayFixBrightness`**
   (at logon, `RunLevel Highest`). The old Run entry is removed on install.
@@ -115,8 +115,8 @@ not cosmetic changes.
 
 - **The brightness floor was weaker than it looked.**
   The NVIDIA backend reports back **8 units lower** than the value written
-  (write 100 → reads 92, write 50 → reads 42, measured across nine points).
-  A floor of 10 therefore left the panel at an actual **2** — still close to a black
+  (write 100 â†’ reads 92, write 50 â†’ reads 42, measured across nine points).
+  A floor of 10 therefore left the panel at an actual **2** â€” still close to a black
   screen.
   *Changed:* the NVIDIA write path adds the measured +8 offset before clamping, so the
   floor of 10 now lands at a real 10.
@@ -135,29 +135,29 @@ not cosmetic changes.
 
 ---
 
-## [1.0.0] — 2026-11-05
+## [1.0.0] â€” 2026-11-05
 
 First public release. Two tools, both built from what was measured on the machine
 (Service Tag CYFY434, BIOS 1.36.0, RTX 4060 Laptop + Intel UHD, AUO AA9F 360 Hz panel).
 
 ### Added
 
-- **PhantomGuard** — background watcher that detects the stale duplicate display path
+- **PhantomGuard** â€” background watcher that detects the stale duplicate display path
   left behind by Advanced Optimus / DDS and clears it by toggling the Intel display
   adapter. Runs as scheduled task `DisplayFixGuard` at logon with highest privileges.
-- **NvBrightness** — tray brightness control with two backends. Uses the Intel
+- **NvBrightness** â€” tray brightness control with two backends. Uses the Intel
   `WmiMonitorBrightnessMethods` path when available, and falls back to NVIDIA's
   `NvWmiBrightness` when the panel is muxed to the dGPU. Global hotkeys
-  `Ctrl+Alt+↑` / `Ctrl+Alt+↓`.
-- `build.ps1` — compiles both tools with the `csc.exe` that ships with Windows
+  `Ctrl+Alt+â†‘` / `Ctrl+Alt+â†“`.
+- `build.ps1` â€” compiles both tools with the `csc.exe` that ships with Windows
   (.NET Framework 4.8). No SDK, no NuGet, no runtime install.
-- `install.ps1` / `uninstall.ps1` — deploy and complete removal.
-- `docs/problem.md` — the full defect analysis with measured numbers and registry evidence.
+- `install.ps1` / `uninstall.ps1` â€” deploy and complete removal.
+- `docs/problem.md` â€” the full defect analysis with measured numbers and registry evidence.
 
 ### Safety
 
 - **Brightness hard floor of 10 %.** Level 0 on this panel is indistinguishable from
-  display-off — the screen goes black. The floor is applied on read, on write, and to
+  display-off â€” the screen goes black. The floor is applied on read, on write, and to
   the slider range, and the tool lifts a panel that it finds below the floor on startup.
 - PhantomGuard requires **two consecutive confirmations** before acting, enforces a
   **120 s cooldown** and a ceiling of **3 repairs per hour**, never touches the NVIDIA
@@ -169,7 +169,7 @@ First public release. Two tools, both built from what was measured on the machin
 ### Known limitations
 
 - Does not repair Dell's underlying defect; the duplicate path is worked around, not fixed.
-- Fn brightness keys do not work while the panel is on the dGPU — Dell's ACPI hotkey
+- Fn brightness keys do not work while the panel is on the dGPU â€” Dell's ACPI hotkey
   path terminates at the Intel provider.
 - Windows' own brightness slider is absent in that state and returns by itself in Optimus.
 - The repair toggles the Intel adapter, so the screen may blink for roughly half a second
