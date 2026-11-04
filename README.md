@@ -142,7 +142,9 @@ No SDK, no runtime install, no dependencies. `build.ps1` uses
 C:\ProgramData\DisplayFix\
   PhantomGuard.exe          scheduled task "DisplayFixGuard"      (logon, highest privileges)
   NvBrightness.exe          scheduled task "DisplayFixBrightness" (logon, highest privileges)
-  logs\guard.log            rolling, 1 MB cap
+  hotkeys.ini               which function-row keys are claimed, and what they do
+  logs\guard.log            duplicate-path decisions, rolling 1 MB
+  logs\app.log              which keys were bound at startup
 ```
 
 Both run as scheduled tasks with `RunLevel Highest`, so neither asks for UAC at logon.
@@ -157,11 +159,14 @@ was the 1.0.0 bug fixed in 1.0.1.
 
 | Action | Result |
 |---|---|
-| **F6 / F7** | brightness −5 % / +5 % — only while the panel is on the dGPU |
+| **F6 / F7** | brightness −5 % / +5 % |
+| **F1 / F2 / F3** | mute / volume down / volume up |
+| **F9** | play-pause |
 | **Left-click** the tray icon | brightness slider |
-| **Ctrl + Alt + ↑** | +5 % (works in both modes) |
-| **Ctrl + Alt + ↓** | −5 % (works in both modes) |
-| **Right-click** the tray icon | presets 100/75/50/25/15, autostart toggle, exit |
+| **Ctrl + Alt + ↑ / ↓** | +5 % / −5 % |
+| **Right-click** the tray icon | presets 100/75/50/25/15, exit |
+
+The function row is configurable — see **hotkeys.ini** below.
 
 The tooltip shows the live state, for example `Brightness 45% (NVIDIA)`.
 

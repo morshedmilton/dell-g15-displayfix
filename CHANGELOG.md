@@ -6,6 +6,51 @@ the rebuilt executables attached.**
 
 ---
 
+## [1.1.0] — 2026-11-05
+
+### Added
+
+- **`hotkeys.ini` — the function row becomes configurable.**
+  Turning on Fn-lock to get plain-F6 brightness works, but Fn-lock is all-or-nothing:
+  it also moves the media functions on every other key behind Fn. There is no per-key
+  setting in the BIOS or the EC, so the app now does it.
+
+  Each key listed in `C:\ProgramData\DisplayFix\hotkeys.ini` is claimed as a global
+  hotkey and given an action. Defaults match the legends on this keyboard:
+
+  ```
+  F1=volume_mute
+  F2=volume_down
+  F3=volume_up
+  F6=brightness_down
+  F7=brightness_up
+  F9=media_play
+  ```
+
+  Actions: `brightness_up`, `brightness_down`, `volume_up`, `volume_down`,
+  `volume_mute`, `media_play`, `media_next`, `media_prev`, `media_stop`.
+  Keys: `F1`–`F12`. Edit the file and restart the task to change it.
+
+- `app.log` records which keys were bound at startup, so a silent failure is visible.
+
+### Changed
+
+- Brightness keys are no longer registered conditionally on the GPU backend. With
+  Fn-lock in function mode the key is a plain keystroke in both modes, so the binding is
+  unconditional and the backend is chosen per keystroke.
+
+### Why not intercept the media code instead
+
+Measured with a raw-input probe, and this is the important part: with Fn-lock in media
+mode, pressing F6 produces **no Windows input event at all** — not a keystroke, not an
+HID consumer usage, nothing. It is handled inside the embedded controller and never
+reaches the OS. Only Fn+F6, which is a real F6 keystroke, is visible.
+
+So catching the media code is impossible from user mode. Remapping in the other
+Fn-lock direction is the only workable route.
+
+---
+
 ## [1.0.3] — 2026-11-05
 
 ### Fixed
