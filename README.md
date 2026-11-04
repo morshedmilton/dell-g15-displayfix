@@ -7,7 +7,7 @@
   <img alt="requires" src="https://img.shields.io/badge/requires-.NET%20Framework%204.8-512BD4?logo=dotnet&logoColor=white">
   <img alt="build" src="https://img.shields.io/badge/build-csc.exe%20only-success">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="version" src="https://img.shields.io/badge/version-1.0.1-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-1.0.2-informational">
 </p>
 
 <p align="center">
@@ -157,9 +157,10 @@ was the 1.0.0 bug fixed in 1.0.1.
 
 | Action | Result |
 |---|---|
+| **F6 / F7** | brightness −5 % / +5 % — only while the panel is on the dGPU |
 | **Left-click** the tray icon | brightness slider |
-| **Ctrl + Alt + ↑** | +5 % |
-| **Ctrl + Alt + ↓** | −5 % |
+| **Ctrl + Alt + ↑** | +5 % (works in both modes) |
+| **Ctrl + Alt + ↓** | −5 % (works in both modes) |
 | **Right-click** the tray icon | presets 100/75/50/25/15, autostart toggle, exit |
 
 The tooltip shows the live state, for example `Brightness 45% (NVIDIA)`.

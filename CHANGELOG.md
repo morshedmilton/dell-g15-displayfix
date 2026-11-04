@@ -6,6 +6,30 @@ the rebuilt executables attached.**
 
 ---
 
+## [1.0.2] — 2026-11-05
+
+### Added
+
+- **F6 / F7 now control brightness**, matching the legends printed on this keyboard
+  (F6 down, F7 up). They are registered as global hotkeys **only while the NVIDIA
+  backend is the active one** — in Optimus the Intel path already handles them, so
+  taking them over there would double-fire.
+- `Ctrl+Alt+↑ / ↓` still work as before, in both modes.
+
+### Note
+
+Because these are global hotkeys, F6 and F7 no longer reach the foreground application
+while the panel is on the dGPU. That is the intended trade on a machine whose brightness
+keys are otherwise dead in that state; the registration is dropped again the moment the
+panel returns to the Intel GPU.
+
+### Verified
+
+Reinstalled locally on the test machine and confirmed both keys are claimed by the tray
+app (`RegisterHotKey` on F6 and F7 from a second process fails).
+
+---
+
 ## [1.0.1] — 2026-11-05
 
 Field fixes found during the first real game session audit. Both are bugs in 1.0.0,
