@@ -6,6 +6,28 @@ the rebuilt executables attached.**
 
 ---
 
+## [1.0.3] — 2026-11-05
+
+### Fixed
+
+- **F6 / F7 only worked with Fn held.** The keyboard's dedicated brightness keys do not
+  produce a keystroke at all — they emit an **HID Consumer Page usage**
+  (`0x0C:0x006F` increment, `0x0C:0x0070` decrement). `RegisterHotKey` can only see
+  keystrokes, so it never fired. Pressing Fn+F6 produced a literal `F6` keystroke, which
+  is why that combination did work.
+
+  The tray app now registers for **raw input** on the consumer-control device
+  (`RegisterRawInputDevices` with `RIDEV_INPUTSINK`) and parses `WM_INPUT` reports for
+  those two usages. Both paths are active, so the keys work whether the F-row is in
+  media mode or function mode.
+
+### Note
+
+Raw input is enabled only while the NVIDIA backend is active, for the same reason the
+plain F6/F7 hotkeys were: in Optimus the Intel path owns those keys.
+
+---
+
 ## [1.0.2] — 2026-11-05
 
 ### Added
