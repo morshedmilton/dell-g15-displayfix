@@ -17,13 +17,15 @@ Write-Host '--- stopping processes'
 Get-Process PhantomGuard, NvBrightness -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-Write-Host '--- removing scheduled task'
-if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-    Write-Host '    removed'
+Write-Host '--- removing scheduled tasks'
+foreach ($t in 'DisplayFixGuard', 'DisplayFixBrightness') {
+    if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $t -Confirm:$false
+        Write-Host "    removed $t"
+    }
 }
 
-Write-Host '--- removing startup entry'
+Write-Host '--- removing the old per-user Run entry'
 Remove-ItemProperty -Path $runKey -Name 'DisplayFixBrightness' -ErrorAction SilentlyContinue
 
 Write-Host '--- removing ProgramData folder'
@@ -38,7 +40,7 @@ if (Test-Path $installDir) {
 
 Write-Host ''
 Write-Host '--- verify'
-'task     : ' + [bool](Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)
+'tasks    : ' + @(Get-ScheduledTask -TaskName 'DisplayFixGuard','DisplayFixBrightness' -ErrorAction SilentlyContinue).Count
 'folder   : ' + (Test-Path $installDir)
 'processes: ' + @(Get-Process PhantomGuard, NvBrightness -ErrorAction SilentlyContinue).Count
 'run entry: ' + [bool]((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).DisplayFixBrightness)
