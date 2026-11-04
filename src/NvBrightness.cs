@@ -1,0 +1,499 @@
+// NvBrightness - tray brightness control that works on either GPU of a
+// hybrid-graphics laptop.
+//
+// Why it exists: with the panel muxed to the dGPU, Windows' brightness API
+// (WmiMonitorBrightness) disappears because its provider is the Intel driver.
+// The backlight is still controllable, through NVIDIA's own WMI interface
+// (root\wmi:NvWmiBrightness). This app picks whichever backend is alive.
+//
+//   Intel  : root\wmi:WmiMonitorBrightnessMethods.WmiSetBrightness
+//   NVIDIA : root\wmi:NvWmiBrightness.NvGetSetBrightnessLevel
+//
+// Backend is re-detected on every operation, so it keeps working across a
+// display-mode switch without a restart.
+//
+// Hotkeys: Ctrl+Alt+Up / Ctrl+Alt+Down (5% steps)
+
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Management;
+using System.Threading;
+using System.Windows.Forms;
+using Microsoft.Win32;
+
+namespace NvBrightness
+{
+    internal static class Program
+    {
+        private const int HotkeyUp = 0x9001;
+        private const int HotkeyDown = 0x9002;
+        private const int WmHotkey = 0x0312;
+        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        private const string RunValue = "DisplayFixBrightness";
+        private const string Step = "5";
+
+        // Hard floor. On this panel 0 is indistinguishable from display-off,
+        // so the value is never allowed below this. Applied on read, on write
+        // and to the slider range.
+        internal const int MinLevel = 10;
+        internal const int MaxLevel = 100;
+
+        internal static int Clamp(int v)
+        {
+            if (v < MinLevel) return MinLevel;
+            if (v > MaxLevel) return MaxLevel;
+            return v;
+        }
+
+        [STAThread]
+        private static void Main(string[] args)
+        {
+            if (args != null && args.Length > 0 && args[0] == "--selftest")
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("MinLevel=" + MinLevel + " MaxLevel=" + MaxLevel);
+                foreach (int v in new[] { -5, 0, 1, 9, 10, 11, 50, 99, 100, 101 })
+                    sb.AppendLine("  in " + v + " -> out " + Clamp(v));
+                sb.AppendLine("backend=" + Backend.Name());
+                sb.AppendLine("current=" + Backend.Get());
+                string path = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "nvbrightness-selftest.txt");
+                System.IO.File.WriteAllText(path, sb.ToString());
+                return;
+            }
+
+            bool created;
+            using (var mutex = new Mutex(true, @"Local\NvBrightness_SingleInstance", out created))
+            {
+                if (!created) return;
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new TrayContext());
+            }
+        }
+
+        // ---------------- backend ----------------
+
+        internal static class Backend
+        {
+            internal static string Name()
+            {
+                if (IntelAvailable()) return "Intel";
+                if (NvAvailable()) return "NVIDIA";
+                return "none";
+            }
+
+            private static bool IntelAvailable()
+            {
+                try
+                {
+                    using (var s = new ManagementObjectSearcher(
+                        "root\\wmi", "SELECT * FROM WmiMonitorBrightnessMethods"))
+                    {
+                        foreach (ManagementObject o in s.Get()) return true;
+                    }
+                }
+                catch { }
+                return false;
+            }
+
+            private static bool NvAvailable()
+            {
+                try
+                {
+                    using (var s = new ManagementObjectSearcher(
+                        "root\\wmi", "SELECT * FROM NvWmiBrightness"))
+                    {
+                        foreach (ManagementObject o in s.Get())
+                        {
+                            object a = o["Active"];
+                            if (a is bool && !(bool)a) continue;
+                            return true;
+                        }
+                    }
+                }
+                catch { }
+                return false;
+            }
+
+            internal static int Get()
+            {
+                if (IntelAvailable())
+                {
+                    try
+                    {
+                        using (var s = new ManagementObjectSearcher(
+                            "root\\wmi", "SELECT * FROM WmiMonitorBrightness"))
+                        {
+                            foreach (ManagementObject o in s.Get())
+                            {
+                                object v = o["CurrentBrightness"];
+                                if (v != null) return Convert.ToInt32(v);
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (NvAvailable())
+                {
+                    try
+                    {
+                        using (var s = new ManagementObjectSearcher(
+                            "root\\wmi", "SELECT * FROM NvWmiBrightness"))
+                        {
+                            foreach (ManagementObject o in s.Get())
+                            {
+                                using (ManagementBaseObject inP = o.GetMethodParameters("NvGetSetBrightnessLevel"))
+                                {
+                                    inP["inArg"] = (uint)0;
+                                    inP["Level"] = (uint)0;
+                                    using (ManagementBaseObject outP = o.InvokeMethod("NvGetSetBrightnessLevel", inP, null))
+                                    {
+                                        if (outP != null && outP["Result"] != null)
+                                            return Convert.ToInt32(outP["Result"]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+                return -1;
+            }
+
+            internal static bool Set(int level)
+            {
+                level = Program.Clamp(level);
+
+                bool ok = false;
+
+                if (IntelAvailable())
+                {
+                    try
+                    {
+                        using (var s = new ManagementObjectSearcher(
+                            "root\\wmi", "SELECT * FROM WmiMonitorBrightnessMethods"))
+                        {
+                            foreach (ManagementObject o in s.Get())
+                            {
+                                using (ManagementBaseObject inP = o.GetMethodParameters("WmiSetBrightness"))
+                                {
+                                    inP["Timeout"] = (uint)0;
+                                    inP["Brightness"] = (byte)level;
+                                    o.InvokeMethod("WmiSetBrightness", inP, null);
+                                    ok = true;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (NvAvailable())
+                {
+                    try
+                    {
+                        using (var s = new ManagementObjectSearcher(
+                            "root\\wmi", "SELECT * FROM NvWmiBrightness"))
+                        {
+                            foreach (ManagementObject o in s.Get())
+                            {
+                                using (ManagementBaseObject inP = o.GetMethodParameters("NvGetSetBrightnessLevel"))
+                                {
+                                    inP["inArg"] = (uint)1;
+                                    inP["Level"] = (uint)level;
+                                    using (ManagementBaseObject outP = o.InvokeMethod("NvGetSetBrightnessLevel", inP, null))
+                                    {
+                                        ok = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                return ok;
+            }
+        }
+
+        // ---------------- tray ----------------
+
+        private sealed class TrayContext : ApplicationContext
+        {
+            private readonly NotifyIcon _tray;
+            private readonly HotkeyWindow _hook;
+            private readonly System.Windows.Forms.Timer _poll;
+            private int _level = 50;
+            private PopupForm _popup;
+
+            internal TrayContext()
+            {
+                int cur = Backend.Get();
+
+                if (cur < 0)
+                {
+                    // backend unreadable - start from a safe midpoint, change nothing
+                    _level = 50;
+                }
+                else if (cur < MinLevel)
+                {
+                    // The panel is sitting at a level that looks like display-off.
+                    // Lift it immediately - this is the safety rescue.
+                    _level = MinLevel;
+                    Backend.Set(MinLevel);
+                }
+                else
+                {
+                    _level = cur;
+                }
+
+                _tray = new NotifyIcon();
+                _tray.Icon = MakeIcon();
+                _tray.Visible = true;
+                _tray.Text = BuildTooltip();
+                _tray.MouseClick += OnTrayClick;
+                _tray.ContextMenuStrip = BuildMenu();
+
+                _hook = new HotkeyWindow();
+                _hook.Hotkey += OnHotkey;
+                _hook.Register(HotkeyUp, Keys.Up);
+                _hook.Register(HotkeyDown, Keys.Down);
+
+                _poll = new System.Windows.Forms.Timer { Interval = 10000 };
+                _poll.Tick += delegate { _tray.Text = BuildTooltip(); };
+                _poll.Start();
+            }
+
+            private string BuildTooltip()
+            {
+                return "Brightness " + _level + "%  (" + Backend.Name() + ")";
+            }
+
+            private ContextMenuStrip BuildMenu()
+            {
+                var m = new ContextMenuStrip();
+
+                var head = new ToolStripMenuItem("Brightness") { Enabled = false };
+                m.Items.Add(head);
+                m.Items.Add(new ToolStripSeparator());
+
+                foreach (int p in new[] { 100, 75, 50, 25, 15 })
+                {
+                    int value = p;
+                    var it = new ToolStripMenuItem(p + "%");
+                    it.Click += delegate { Apply(value); };
+                    m.Items.Add(it);
+                }
+
+                m.Items.Add(new ToolStripSeparator());
+
+                var auto = new ToolStripMenuItem("Start with Windows");
+                auto.Checked = IsAutostart();
+                auto.Click += delegate
+                {
+                    ToggleAutostart();
+                    auto.Checked = IsAutostart();
+                };
+                m.Items.Add(auto);
+
+                m.Items.Add(new ToolStripMenuItem("Ctrl+Alt+\u2191 / \u2193  =  \u00b1" + Step + "%") { Enabled = false });
+
+                m.Items.Add(new ToolStripSeparator());
+                var exit = new ToolStripMenuItem("Exit");
+                exit.Click += delegate { ExitThread(); };
+                m.Items.Add(exit);
+
+                return m;
+            }
+
+            private void OnTrayClick(object sender, MouseEventArgs e)
+            {
+                if (e.Button != MouseButtons.Left) return;
+                if (_popup != null && _popup.Visible) { _popup.Close(); return; }
+                _popup = new PopupForm(_level, Apply);
+                _popup.ShowNear(Cursor.Position);
+            }
+
+            private void OnHotkey(int id)
+            {
+                int step = int.Parse(Step);
+                Apply(_level + (id == HotkeyUp ? step : -step));
+                _tray.Text = BuildTooltip();
+            }
+
+            private void Apply(int value)
+            {
+                int clamped = Clamp(value);
+                if (Backend.Set(clamped))
+                {
+                    _level = clamped;
+                    _tray.Text = BuildTooltip();
+                }
+            }
+
+            private static bool IsAutostart()
+            {
+                try
+                {
+                    using (RegistryKey k = Registry.CurrentUser.OpenSubKey(RunKey, false))
+                        return k != null && k.GetValue(RunValue) != null;
+                }
+                catch { return false; }
+            }
+
+            private static void ToggleAutostart()
+            {
+                try
+                {
+                    using (RegistryKey k = Registry.CurrentUser.OpenSubKey(RunKey, true))
+                    {
+                        if (k == null) return;
+                        if (k.GetValue(RunValue) != null) k.DeleteValue(RunValue, false);
+                        else k.SetValue(RunValue, "\"" + Application.ExecutablePath + "\"");
+                    }
+                }
+                catch { }
+            }
+
+            private static Icon MakeIcon()
+            {
+                var bmp = new Bitmap(32, 32);
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.Clear(Color.Transparent);
+                    using (var brush = new SolidBrush(Color.FromArgb(255, 200, 60)))
+                        g.FillEllipse(brush, 11, 11, 10, 10);
+                    using (var pen = new Pen(Color.FromArgb(255, 200, 60), 2.4f))
+                    {
+                        for (int i = 0; i < 8; i++)
+                        {
+                            double a = i * Math.PI / 4.0;
+                            float x1 = 16 + (float)(Math.Cos(a) * 7.5);
+                            float y1 = 16 + (float)(Math.Sin(a) * 7.5);
+                            float x2 = 16 + (float)(Math.Cos(a) * 12.5);
+                            float y2 = 16 + (float)(Math.Sin(a) * 12.5);
+                            g.DrawLine(pen, x1, y1, x2, y2);
+                        }
+                    }
+                }
+                return Icon.FromHandle(bmp.GetHicon());
+            }
+
+            protected override void ExitThreadCore()
+            {
+                _poll.Stop();
+                _tray.Visible = false;
+                _tray.Dispose();
+                _hook.Close();
+                base.ExitThreadCore();
+            }
+        }
+
+        // ---------------- invisible window that owns the hotkeys ----------------
+
+        private sealed class HotkeyWindow : Form
+        {
+            internal event Action<int> Hotkey;
+
+            internal HotkeyWindow()
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                ShowInTaskbar = false;
+                StartPosition = FormStartPosition.Manual;
+                Location = new Point(-32000, -32000);
+                Size = new Size(1, 1);
+                Opacity = 0;
+                Show();
+            }
+
+            internal void Register(int id, Keys key)
+            {
+                RegisterHotKey(Handle, id, MOD_CONTROL | MOD_ALT, (uint)key);
+            }
+
+            protected override void WndProc(ref Message m)
+            {
+                if (m.Msg == WmHotkey)
+                {
+                    var h = Hotkey;
+                    if (h != null) h(m.WParam.ToInt32());
+                    return;
+                }
+                base.WndProc(ref m);
+            }
+
+            private const uint MOD_ALT = 0x0001;
+            private const uint MOD_CONTROL = 0x0002;
+
+            [System.Runtime.InteropServices.DllImport("user32.dll")]
+            private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        }
+
+        // ---------------- slider popup ----------------
+
+        private sealed class PopupForm : Form
+        {
+            private readonly TrackBar _bar;
+            private readonly Label _label;
+            private readonly Action<int> _apply;
+
+            internal PopupForm(int level, Action<int> apply)
+            {
+                _apply = apply;
+
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                ShowInTaskbar = false;
+                TopMost = true;
+                ClientSize = new Size(240, 78);
+                BackColor = Color.FromArgb(32, 32, 36);
+                Padding = new Padding(12);
+
+                _label = new Label();
+                _label.ForeColor = Color.Gainsboro;
+                _label.Font = new Font("Segoe UI", 9f);
+                _label.Text = level + "%";
+                _label.AutoSize = false;
+                _label.Bounds = new Rectangle(12, 8, 216, 18);
+                Controls.Add(_label);
+
+                _bar = new TrackBar();
+                _bar.Minimum = Program.MinLevel;
+                _bar.Maximum = Program.MaxLevel;
+                _bar.TickStyle = TickStyle.None;
+                _bar.Bounds = new Rectangle(8, 30, 224, 34);
+                _bar.Value = level;
+                _bar.ValueChanged += delegate { _label.Text = _bar.Value + "%"; };
+                _bar.MouseUp += delegate { _apply(_bar.Value); };
+                _bar.KeyUp += delegate { _apply(_bar.Value); };
+                Controls.Add(_bar);
+
+                Deactivate += delegate { Close(); };
+            }
+
+            internal void ShowNear(Point cursor)
+            {
+                var wa = Screen.PrimaryScreen.WorkingArea;
+                int x = cursor.X - Width / 2;
+                int y = cursor.Y - Height - 12;
+                if (x < wa.Left) x = wa.Left;
+                if (x + Width > wa.Right) x = wa.Right - Width;
+                if (y < wa.Top) y = cursor.Y + 12;
+                Location = new Point(x, y);
+                Show();
+                Activate();
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                base.OnPaint(e);
+                using (var pen = new Pen(Color.FromArgb(70, 70, 78)))
+                    e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            }
+        }
+    }
+}
