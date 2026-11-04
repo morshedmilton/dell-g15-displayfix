@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="330" viewBox="0 0 1120 330" role="img" aria-label="PhantomGuard decision flow">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6f96"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3f9d76"/>
+    </marker>
+    <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9d5c5c"/>
+    </marker>
+  </defs>
+
+  <rect width="1120" height="330" fill="#0b1020"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+
+    <!-- start -->
+    <rect x="24" y="140" width="128" height="44" rx="22" fill="#16233f" stroke="#2c4272"/>
+    <text x="88" y="167" fill="#c7d2fe" text-anchor="middle">every 8 s</text>
+
+    <!-- scan -->
+    <rect x="188" y="132" width="180" height="60" rx="10" fill="#0f1830" stroke="#22315a"/>
+    <text x="278" y="156" fill="#dbe6ff" text-anchor="middle">count active paths</text>
+    <text x="278" y="176" fill="#8fa3c7" text-anchor="middle">list present monitors</text>
+
+    <!-- decision 1 -->
+    <polygon points="470,120 578,162 470,204 362,162" fill="#1b1626" stroke="#4a3b63"/>
+    <text x="470" y="158" fill="#d9c9f0" text-anchor="middle">external monitor</text>
+    <text x="470" y="175" fill="#d9c9f0" text-anchor="middle">present?</text>
+
+    <!-- stand down -->
+    <rect x="632" y="70" width="152" height="52" rx="10" fill="#1f2937" stroke="#4b5563"/>
+    <text x="708" y="92" fill="#9ca3af" text-anchor="middle">stand down</text>
+    <text x="708" y="110" fill="#6b7280" text-anchor="middle" font-size="11">never touch it</text>
+
+    <!-- decision 2 -->
+    <polygon points="470,208 590,250 470,292 350,250" fill="#1b2416" stroke="#3f5c34"/>
+    <text x="470" y="246" fill="#cfe3b8" text-anchor="middle">2+ paths or 2</text>
+    <text x="470" y="263" fill="#cfe3b8" text-anchor="middle">internal monitors?</text>
+
+    <!-- healthy -->
+    <rect x="632" y="224" width="152" height="52" rx="10" fill="#0f2a1e" stroke="#2f6f52"/>
+    <text x="708" y="246" fill="#a7f3d0" text-anchor="middle">healthy</text>
+    <text x="708" y="264" fill="#5f9c81" text-anchor="middle" font-size="11">do nothing</text>
+
+    <!-- repair -->
+    <rect x="836" y="140" width="240" height="66" rx="10" fill="#2a1f0f" stroke="#7c5a2a"/>
+    <text x="956" y="164" fill="#fcd9a1" text-anchor="middle">confirm → disable Intel adapter</text>
+    <text x="956" y="184" fill="#fcd9a1" text-anchor="middle">4 s → enable → verify 1 path</text>
+
+    <!-- links -->
+    <line x1="152" y1="162" x2="186" y2="162" stroke="#5c6f96" stroke-width="1.6" marker-end="url(#ar)"/>
+    <line x1="368" y1="152" x2="360" y2="150" stroke="#5c6f96" stroke-width="1.6"/>
+    <line x1="578" y1="150" x2="630" y2="104" stroke="#9d5c5c" stroke-width="1.6" marker-end="url(#arR)"/>
+    <text x="596" y="118" fill="#c98b8b" font-size="11">yes</text>
+    <line x1="470" y1="204" x2="470" y2="206" stroke="#5c6f96" stroke-width="1.6"/>
+    <text x="486" y="200" fill="#8fa3c7" font-size="11">no</text>
+    <line x1="590" y1="248" x2="630" y2="248" stroke="#3f9d76" stroke-width="1.6" marker-end="url(#arG)"/>
+    <text x="600" y="240" fill="#7fc3a3" font-size="11">no</text>
+    <line x1="590" y1="256" x2="834" y2="180" stroke="#c99a5c" stroke-width="1.6" marker-end="url(#ar)"/>
+    <text x="700" y="212" fill="#d3ac74" font-size="11">yes</text>
+
+    <text x="24" y="316" fill="#4b5b7a" font-size="11">cooldown 120 s · max 3 repairs per hour · single instance · NVIDIA adapter never touched</text>
+  </g>
+</svg>
