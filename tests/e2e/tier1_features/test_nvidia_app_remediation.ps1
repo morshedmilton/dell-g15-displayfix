@@ -117,4 +117,33 @@ Describe "MR3 - NVIDIA App Remediation & UpdateFramework" {
         & powershell -NoProfile -ExecutionPolicy Bypass -File $remedyScript -Verify 2>&1 | Out-Null
         Assert-Equal $LASTEXITCODE 0 "remedy_nvidia_app.ps1 -Verify must exit 0"
     }
+
+    It "MR3.17: fix_nvidia_app.ps1 exists in scripts\diagnostics directory" {
+        $fixScript = Join-Path $repoRoot 'scripts\diagnostics\fix_nvidia_app.ps1'
+        Assert-True (Test-Path $fixScript) "scripts\diagnostics\fix_nvidia_app.ps1 must exist"
+    }
+
+    It "MR3.18: fix_nvidia_app.ps1 -VerifyOnly exits with 0 (clean state confirmed)" {
+        $fixScript = Join-Path $repoRoot 'scripts\diagnostics\fix_nvidia_app.ps1'
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $fixScript -VerifyOnly 2>&1 | Out-Null
+        Assert-Equal $LASTEXITCODE 0 "fix_nvidia_app.ps1 -VerifyOnly must exit 0"
+    }
+
+    It "MR3.19: FvSvc (FrameView SDK Service) is Running and StartupType is Automatic" {
+        $fv = Get-Service -Name 'FvSvc' -ErrorAction SilentlyContinue
+        Assert-NotNull $fv "FvSvc service must exist"
+        Assert-Equal $fv.Status.ToString() 'Running' "FvSvc service must be Running"
+        Assert-Equal $fv.StartType.ToString() 'Automatic' "FvSvc StartupType must be Automatic"
+    }
+
+    It "MR3.20: Downloader folder contains no orphaned lock or temporary files" {
+        $dlDir = 'C:\ProgramData\NVIDIA Corporation\Downloader'
+        if (Test-Path $dlDir) {
+            $locks = Get-ChildItem -Path $dlDir -Include *.lock,*.tmp,*.part,*.aria2 -Recurse -File -ErrorAction SilentlyContinue
+            Assert-Equal (@($locks).Count) 0 "Downloader must have 0 lock/temporary files"
+        } else {
+            Assert-True $true "Downloader directory is clean / not created"
+        }
+    }
 }
+

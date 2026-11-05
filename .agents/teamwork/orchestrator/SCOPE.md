@@ -40,8 +40,8 @@ From the Phase 0 Round 2 Survey (3 parallel Explorers `explorer_r2_1`, `explorer
 |---|------|-------|-------------|--------|
 | MR1 | Restore Display Brightness Hotkey and Backlight Control | Elevated daemon installation, remove HKCU Run entry, activate hotkeys.ini, verify NvWmi writes change backlight | none | DONE |
 | MR2 | Restore Display Mode Switching (Optimus / Automatic) | Configure Global 3D Auto-Select, reset display container services, verify Intel/NVIDIA PnP and ACPI switching readiness, provide BIOS toggle guide | MR1 | DONE |
-| MR3 | Resolve NVIDIA App Driver Update Loop and Tuning Lockup | Clear stale postprocessing.json and downloader locks, start FvSvc, clear tuning scan cache, verify download & tuning toggle | MR2 | IN_PROGRESS |
-| MR4 | Full Test Suite Execution & Acceptance Verification | Execute full E2E test suite (Tiers 1-4 + Tier 5), verify 9/9 gates, verify system integrity, compile comprehensive verification guide | MR1, MR2, MR3 | PLANNED |
+| MR3 | Resolve NVIDIA App Driver Update Loop and Tuning Lockup | Clear stale postprocessing.json and downloader locks, start FvSvc, clear tuning scan cache, verify download & tuning toggle | MR2 | DONE |
+| MR4 | Full Test Suite Execution & Acceptance Verification | Execute full E2E test suite (Tiers 1-4 + Tier 5), verify 9/9 gates, verify system integrity, compile comprehensive verification guide | MR1, MR2, MR3 | DONE |
 
 ---
 
