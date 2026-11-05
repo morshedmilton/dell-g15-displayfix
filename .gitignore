@@ -1,5 +1,6 @@
-﻿# build output that should never be committed
+# build output that should never be committed
 obj/
+release/
 *.pdb
 *.user
 
