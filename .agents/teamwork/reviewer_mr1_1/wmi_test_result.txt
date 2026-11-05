@@ -1,0 +1,4 @@
+SUCCESS: CimMethod succeeded
+Result: 0
+ReadBack Result: 58
+ReadBack Level: 

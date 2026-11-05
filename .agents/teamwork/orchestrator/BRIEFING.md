@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-05T11:26:55Z
+# BRIEFING — 2026-11-05T17:49:00Z
 
 ## Mission
-Orchestrate diagnosis and end-to-end resolution of Dell G15 display switching, 360Hz refresh rate stability, F6/F7 brightness hotkeys in NVIDIA GPU Only mode, and persistent 125% display scaling.
+Diagnose and resolve three interacting display and GPU software/driver issues on Dell G15 5530: restore display brightness hotkeys and backlight control, enable grayed-out display modes (Optimus and Automatic), and resolve NVIDIA App driver download and tuning lockups.
 
 ## 🔒 My Identity
 - Archetype: orchestrator
@@ -32,11 +32,17 @@ Orchestrate diagnosis and end-to-end resolution of Dell G15 display switching, 3
   2. Test Infrastructure & E2E Test Suite [DONE - TEST_READY.md published]
   3. Milestone 1: Diagnostics, Telemetry & Stress Harness [DONE - GATE 2 PASSED]
   4. Milestone 2: Core Daemon & Ghost Monitor Eviction Engine [DONE - GATE 1 PASSED]
-  5. Milestone 3: 360Hz Refresh Rate Lock & Persistent 125% DPI Scaling [IN-PROGRESS]
-  6. Milestone 4: F6/F7 Brightness Hotkey Control & Acrylic OSD [pending]
-  7. Final Milestone: 100% E2E Test pass & verification [pending]
-- **Current phase**: Milestone 3: 360Hz Refresh Rate Lock & Persistent 125% DPI Scaling
-- **Current focus**: Exploration Phase for Milestone 3
+  5. Milestone 3: 360Hz Refresh Rate Lock & Persistent 125% DPI Scaling [DONE - GATE 1 PASSED]
+  6. Milestone 4: F6/F7 Brightness Hotkey Control & Acrylic OSD [DONE - GATE 1 PASSED]
+  7. Final Milestone: 100% E2E Test pass & verification [DONE - GATE 1 PASSED]
+- **Round 2 Work items**:
+  1. Round 2 Survey: 3 parallel explorers on R1, R2, R3 [DONE]
+  2. Milestone MR1: Restore Display Brightness Hotkey and Backlight Control [DONE - GATE PASSED]
+  3. Milestone MR2: Restore Display Mode Switching (Optimus / Automatic) [DONE - GATE PASSED]
+  4. Milestone MR3: Resolve NVIDIA App Driver Update Loop and Tuning Lockup [IN-PROGRESS]
+  5. Milestone MR4: Master Test Suite & Acceptance Verification [pending]
+- **Current phase**: Milestone MR3 Execution
+- **Current focus**: worker_mr3_replace executing NVIDIA App & Automatic Tuning repair
 
 ## 🔒 Key Constraints
 - NEVER write, modify, or create source code files directly.
@@ -49,37 +55,36 @@ Orchestrate diagnosis and end-to-end resolution of Dell G15 display switching, 3
 - Never reuse a subagent after it has delivered its handoff — always spawn fresh.
 
 ## Current Parent
-- Conversation ID: d6ad81d4-2d2b-4849-b8d7-d00221e50e1c
-- Updated: not yet
+- Conversation ID: 2edd9ace-d162-47ad-8a19-1539b9e82a5d
+- Updated: 2026-11-05T15:42:12Z
 
 ## Key Decisions Made
-- Milestone 1 certified: all 4 defects remediated in Iteration 2, 15/15 Tier 1 E2E tests passed, 33/33 Tier 5 Adversarial tests passed, Gate passed with 2 Reviewers APPROVED, 2 Challengers APPROVED, and Forensic Auditor CLEAN.
-- Milestone 2 certified: Core Daemon (`DisplayFixDaemon.exe`), `EventWindow.cs`, `GhostEvictionEngine.cs`, `scripts/build.ps1`, `scripts/install.ps1`, `scripts/uninstall.ps1` completed, verified in <10ms eviction latency, 15/15 Tier 1 E2E tests passed, 20/20 Tier 2 boundary tests passed, 16/16 Tier 4 scenario tests passed, 28/28 Tier 5 adversarial tests passed, Gate passed with Reviewer 1 APPROVED, Reviewer 2 APPROVED, Challenger 1 APPROVED, Challenger 2 APPROVED, and Forensic Auditor CLEAN.
-- Moving to Milestone 3: 360Hz Refresh Rate Lock (`RefreshRateLock.cs`, Interface Contract 2) and Persistent 125% DPI Scaling (`ScalingSynchronizer.cs`, Interface Contract 3).
+- Milestone MR1 certified: Elevated daemon task scheduler deployment, HKCU Run key purged, hotkeys.ini active, NvWmi hardware writes verified, Gate passed unanimously.
+- Milestone MR2 certified: Container services cycled, test_display_modes.ps1 prober implemented, F2 BIOS Hybrid Graphics toggle documented in verification_guide.md, Gate passed unanimously.
+- Milestone MR3 in progress: Dispatched worker_mr3_replace to purge stale postprocessing.json / downloader locks, start FvSvc service, clear OC scan cache, and patch test_display_modes.ps1 robustness items.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| explorer_m3_1 | teamwork_explorer | M3 360Hz Refresh Rate Lock | in-progress | 5ddac782-18ef-458c-b9cc-248e1970ec4e |
-| explorer_m3_2 | teamwork_explorer | M3 DPI Scaling & Registry Sync | in-progress | 8a691a39-1a71-4c6f-8c63-fe93a83d9c0b |
-| explorer_m3_3 | teamwork_explorer | M3 Display Event Integration | in-progress | c074682c-a7d5-4894-9fa4-02e1bb0e11a0 |
+| worker_mr3_replace | teamwork_worker | MR3 Implementation | in-progress | 45bc1954-4f35-46a7-ba44-b33a49818c67 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 34 / 128
-- Pending subagents: 5ddac782-18ef-458c-b9cc-248e1970ec4e, 8a691a39-1a71-4c6f-8c63-fe93a83d9c0b, c074682c-a7d5-4894-9fa4-02e1bb0e11a0
+- Spawn count: 16 / 16 (Round 2)
+- Pending subagents: 45bc1954-4f35-46a7-ba44-b33a49818c67
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: 1fa2c640-1687-4d63-a802-a810e6d0f6c0/task-105
-- Safety timer: 1fa2c640-1687-4d63-a802-a810e6d0f6c0/task-720
+- Heartbeat cron: bd84f41c-e07c-4707-9ad1-351ca2febc68/task-40
+- Safety timer: none
 
 ## Artifact Index
 - ORIGINAL_REQUEST.md: .agents/teamwork/ORIGINAL_REQUEST.md
 - DISPATCH.md: .agents/teamwork/orchestrator/DISPATCH.md
 - BRIEFING.md: .agents/teamwork/orchestrator/BRIEFING.md
 - progress.md: .agents/teamwork/orchestrator/progress.md
+- SCOPE.md: .agents/teamwork/orchestrator/SCOPE.md
 - GATE_STATUS.md: .agents/teamwork/orchestrator/GATE_STATUS.md
 - PROJECT.md: PROJECT.md
 - TEST_INFRA.md: TEST_INFRA.md

@@ -119,6 +119,30 @@ if ($InPlace) {
         Copy-Item -Path $sourceConfig -Destination (Join-Path $InstallDir (Split-Path -Leaf $sourceConfig)) -Force
     }
 
+    # Provision hotkeys.ini if missing or placeholder
+    $hotkeysIniPath = Join-Path $InstallDir 'hotkeys.ini'
+    $needsConfig = $true
+    if (Test-Path $hotkeysIniPath) {
+        $existingConfig = Get-Content $hotkeysIniPath -Raw -ErrorAction SilentlyContinue
+        if ($existingConfig -and $existingConfig -notmatch 'Intentionally empty' -and $existingConfig -match 'BrightnessDown') {
+            $needsConfig = $false
+        }
+    }
+    if ($needsConfig) {
+        $defaultConfig = @"
+[Hotkeys]
+BrightnessDown=F6
+BrightnessUp=F7
+Step=5
+Mute=F1
+VolumeDown=F2
+VolumeUp=F3
+PlayPause=F9
+"@
+        Set-Content -Path $hotkeysIniPath -Value $defaultConfig -Encoding UTF8
+        Write-Host "Provisioned active hotkey configuration: $hotkeysIniPath" -ForegroundColor Green
+    }
+
     $targetExe     = $destExe
     $targetWorkDir = $InstallDir
 }
@@ -133,11 +157,14 @@ foreach ($t in $legacyTasks) {
     }
 }
 
-# Remove legacy HKCU Run entry if present
+# Remove non-elevated HKCU Run entries if present
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).DisplayFixBrightness) {
-    Write-Host "Removing legacy Run key: DisplayFixBrightness" -ForegroundColor Gray
-    Remove-ItemProperty -Path $runKey -Name 'DisplayFixBrightness' -ErrorAction SilentlyContinue
+$runEntries = @('DisplayFixBrightness', 'DisplayFixDaemon')
+foreach ($entry in $runEntries) {
+    if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).$entry) {
+        Write-Host "Removing non-elevated Run key: $entry" -ForegroundColor Gray
+        Remove-ItemProperty -Path $runKey -Name $entry -ErrorAction SilentlyContinue
+    }
 }
 
 # 6. Register unified Scheduled Task

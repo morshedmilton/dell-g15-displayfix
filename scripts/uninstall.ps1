@@ -61,12 +61,14 @@ foreach ($t in $TaskNames) {
 # 4. Clean legacy Run registry entries
 Write-Host "`n--- Cleaning Registry ---" -ForegroundColor Cyan
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-$prop = (Get-ItemProperty -Path $runKey -ErrorAction SilentlyContinue).DisplayFixBrightness
-if ($null -ne $prop) {
-    Remove-ItemProperty -Path $runKey -Name 'DisplayFixBrightness' -ErrorAction SilentlyContinue
-    Write-Host "  [OK] Removed HKCU Run entry: DisplayFixBrightness" -ForegroundColor Green
-} else {
-    Write-Host "  [--] HKCU Run entry not present" -ForegroundColor Gray
+$runEntries = @('DisplayFixBrightness', 'DisplayFixDaemon')
+foreach ($entry in $runEntries) {
+    if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).$entry) {
+        Remove-ItemProperty -Path $runKey -Name $entry -ErrorAction SilentlyContinue
+        Write-Host "  [OK] Removed HKCU Run entry: $entry" -ForegroundColor Green
+    } else {
+        Write-Host "  [--] HKCU Run entry not present: $entry" -ForegroundColor Gray
+    }
 }
 
 # 5. Clean ProgramData Filesystem
