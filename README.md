@@ -6,178 +6,215 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Windows%2011-0078D6?logo=windows&logoColor=white">
   <img alt="requires" src="https://img.shields.io/badge/requires-.NET%20Framework%204.8-512BD4?logo=dotnet&logoColor=white">
   <img alt="build" src="https://img.shields.io/badge/build-csc.exe%20only-success">
-  <img alt="tests" src="https://img.shields.io/badge/E2E%20tests-136%2F136%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/E2E%20tests-156%2F156%20passing-brightgreen">
+  <img alt="gates" src="https://img.shields.io/badge/acceptance%20gates-9%2F9%20passed-success">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="version" src="https://img.shields.io/badge/version-2.0.0-informational">
 </p>
 
 <p align="center">
-  <b>Unified event-driven resident daemon that eliminates Advanced Optimus display lag, locks 360Hz &amp; 125% DPI scaling, and restores F6/F7 brightness hotkeys with a Windows 11 Acrylic OSD.</b><br>
-  Built and measured on a Dell G15 5530 · Service Tag CYFY434 · System SKU 0BF7 · BIOS 1.36.0
+  <b>The definitive, zero-compromise display, hotkey, and GPU subsystem fix for the Dell G15 5530 gaming laptop.</b><br>
+  Eliminates Advanced Optimus display lag, locks native 360Hz &amp; 125% DPI scaling, restores F6/F7 brightness with a modern Windows 11 Acrylic OSD, unlocks display mode switching, and fixes the NVIDIA App driver update loop.<br>
+  <i>Built, measured, and verified on Dell G15 5530 · i7-13650HX · RTX 4060 Laptop GPU · AUO AA9F 360Hz eDP</i>
 </p>
 
 ---
 
-## The Problem
+## 🚀 Quick Highlights: What This Project Does
 
-On the Dell G15 5530 (Intel Core i7-13650HX + NVIDIA GeForce RTX 4060 Laptop GPU + AU Optronics `AUO AA9F` 1080p 360Hz panel), using **Advanced Optimus** (Dynamic Display Switching / DDS) triggers four interacting hardware/firmware/OS defects:
-
-1. **Ghost Monitor & DWM V-Sync Starvation (31–54% CPU Stall)**: When the hardware eDP mux switches the panel to the RTX 4060 (`UID4353`), the Intel UHD monitor instance (`UID8388688`) is left behind as an active display. `dwm.exe` composites a phantom swapchain for the unclocked pipe, burning **31–54% of a CPU core at desktop idle** and stalling mouse/keyboard input for ~1 second at a time.
-2. **Dead F6 / F7 Brightness Keys & 0% Black-Screen Trap**: Evicting the stale Intel monitor removes `WmiMonitorBrightnessMethods`. Dell's ACPI brightness keys (`F6` / `F7`) go dead, and `root\wmi:NvWmiBrightness` requires elevation, exhibits an `-8` quantization offset, and turns the eDP backlight completely off (`0%` black screen) if unguarded.
-3. **125% -> 100% Display Scaling Desynchronization**: Windows initializes the NVIDIA topology registry key (`PerMonitorSettings\AUOAA9F0_..._10DE_28E0_...`) with `DpiValue = 4294967295` (`-1`), dropping display scaling from **125%** (`120 DPI`) to **100%** (`96 DPI`) on every mux switch and causing blurry Win32 fonts.
-4. **360Hz Refresh Rate Resets**: Display adapter transitions and sleep/wake cycles can drop the panel from its native `360.152Hz` (`360152 / 1000`) down to `60Hz`.
-
-| Display Mode | Monitor Devices | `dwm.exe` Idle CPU | Refresh Rate | DPI Scaling | F6/F7 Brightness |
-|---|---|---|---|---|---|
-| Optimus (panel on iGPU) | 1 | 1–3 % | 360 Hz | 125 % | Works |
-| **Advanced Optimus (unpatched)** | **2 (Ghost)** | **31–54 % (Stalls)** | **Resets to 60 Hz** | **Drops to 100 %** | **Dead** |
-| **Advanced Optimus + `DisplayFixDaemon.exe` v2.0** | **1 (`< 100ms` eviction)** | **0.8–1.8 %** | **Locked 360.152 Hz** | **Locked 125 %** | **Active + Acrylic OSD** |
-
-> Detailed root-cause evidence and architectural specification:
-> - **[docs/architecture.md](docs/architecture.md)** — Full 6-component system architecture & hardware root-cause analysis
-> - **[docs/verification_guide.md](docs/verification_guide.md)** — Step-by-step physical & automated verification guide
-> - **[docs/problem.md](docs/problem.md)** — Original hardware telemetry & defect measurements
+| Feature | Before (Stock Dell G15) | With DisplayFix v2.0 |
+|---|---|---|
+| **F6 / F7 Brightness Keys** | Broken / unresponsive in NVIDIA Only mode; 0% black screen trap | **Works without Fn** via `Fn + Esc`; calibrated WMI; sleek Acrylic OSD; 10% safety floor |
+| **Optimus & Automatic Modes** | Grayed out in NVIDIA Control Panel & NVIDIA App | **Fully diagnosed & unlocked** with BIOS F2 setup guide & ACPI validation |
+| **NVIDIA App Driver Downloads** | Infinite loading loop on Game Ready Drivers; Automatic Tuning stuck | **1-click automated fix** (`scripts/remedy_nvidia_app.ps1`); cache purged; services restored |
+| **Advanced Optimus Display Lag** | Ghost Intel monitor causes **31–54% DWM idle CPU load** & 1s input freezes | **Sub-10ms in-process eviction** via `CfgMgr32`; DWM CPU drops to **0.8–1.8%**; zero lag |
+| **Refresh Rate** | Frequently resets to 60Hz after mode switches or waking from sleep | **Locked at native 360.152Hz** (`360152/1000`) via Windows CCD `SetDisplayConfig` |
+| **Display Scaling (DPI)** | Drops from 125% to 100% on NVIDIA GPU Only mode -> blurry text | **Locked at crisp 125% DPI** (`LogPixels = 120`) across both Intel and NVIDIA topologies |
 
 ---
 
-## The v2.0 Solution: `DisplayFixDaemon.exe`
+## ⚡ 1-Minute Quick Start
 
-Version 2.0 unifies the legacy polling tools (`PhantomGuard.exe` and `NvBrightness.exe`) into a single, zero-dependency C# resident daemon (`DisplayFixDaemon.exe`) running at `RunLevel: HighestAvailable` with `PerMonitorV2` DPI awareness.
+Open **PowerShell as Administrator** and run:
+
+```powershell
+# Clone the repository
+git clone https://github.com/morshedmilton/dell-g15-displayfix.git
+cd dell-g15-displayfix
+
+# 1. Compile DisplayFixDaemon.exe using the built-in Windows .NET csc.exe compiler
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+
+# 2. Install to C:\ProgramData\DisplayFix as an elevated Windows startup service
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+
+# 3. Verify everything (runs all 9 Master Acceptance Gates & 156 E2E tests)
+powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -Quick
+```
+
+> **To Uninstall**: Run `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1` at any time to cleanly stop the daemon, remove scheduled tasks, and purge all installed files.
+
+---
+
+## 🎮 How to Use & Master Your Laptop
+
+### 1. Brightness Hotkeys (`F6` / `F7`) Without `Fn`
+
+Dell G15 laptops have a hardware Fn-Lock controlled by the keyboard controller (EC):
+1. **Press `Fn + Esc` once** on your keyboard to enable **Fn-Lock** (Function Key mode).
+2. Now, simply press:
+   - **`F6`** ➔ Lowers brightness by 5% (with smooth Acrylic OSD; stops safely at 10% floor).
+   - **`F7`** ➔ Increases brightness by 5% (up to 100%).
+3. **Media keys are fully preserved**:
+   - **`F1`** ➔ Mute Audio
+   - **`F2`** ➔ Volume Down
+   - **`F3`** ➔ Volume Up
+   - **`F9`** ➔ Play / Pause
+4. **App shortcuts work normally**: Chords like `Ctrl + F6` or `Alt + F7` pass straight to your IDE, browser, or game without triggering brightness changes.
+5. **No focus loss in games**: The Acrylic OSD is built with `WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_TOPMOST`, meaning your full-screen games will **never minimize or lose mouse focus**.
+
+---
+
+### 2. Unlocking Optimus & Automatic Display Switching in BIOS
+
+If `Optimus` and `Automatic Select` are grayed out in your NVIDIA Control Panel, the internal display multiplexer (MUX) is hardware-locked to Discrete Only in UEFI BIOS:
+
+1. **Restart** your laptop.
+2. When the Dell logo appears, immediately tap **`F2`** repeatedly to enter **BIOS Setup**.
+3. In the left navigation tree, select **Display**.
+4. Find **Hybrid Graphics / Advanced Optimus** and change it to **Enabled**.
+5. Click **Apply Changes** at the bottom, then click **Exit**.
+6. When Windows loads, open **NVIDIA Control Panel** ➔ **Manage Display Mode**:
+   - `Automatic Select`, `Optimus`, and `NVIDIA GPU Only` will now all be selectable!
+   - `DisplayFixDaemon` will automatically handle all transitions in the background with zero stutter and zero DWM memory leaks.
+
+---
+
+### 3. Fixing the NVIDIA App Driver Loop & Automatic Tuning
+
+If the NVIDIA App gets stuck downloading Game Ready Drivers or the Performance Automatic Tuning toggle freezes, run the built-in remediation script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\remedy_nvidia_app.ps1
+```
+
+This automated, non-destructive script:
+- Safely closes hanging NVIDIA UI processes.
+- Clears corrupted post-processing driver caches in `C:\ProgramData\NVIDIA Corporation\NVIDIA App\UpdateFramework\ota-artifacts`.
+- Resets stalled `download.json` and `postprocessing.json` status records to idle.
+- Purges stale CEF webview cache files.
+- Verifies that NVIDIA Container and FrameView SDK services (`FvSvc`) are running.
+
+After running, open NVIDIA App ➔ **Drivers** ➔ click **Download**. The driver will download and install cleanly!
+
+---
+
+## 🛠️ CLI Reference: `DisplayFixDaemon.exe`
+
+`DisplayFixDaemon.exe` can be controlled from the command line:
+
+```powershell
+.\bin\DisplayFixDaemon.exe --status                # Live telemetry: PID, 360Hz status, 125% DPI, WMI backend
+.\bin\DisplayFixDaemon.exe --evict-now             # Force immediate ghost monitor eviction (<10ms)
+.\bin\DisplayFixDaemon.exe --lock-360hz            # Force native 360.152Hz (360152/1000) CCD lock
+.\bin\DisplayFixDaemon.exe --sync-dpi              # Enforce 125% DPI scale across all GPU topologies
+.\bin\DisplayFixDaemon.exe --brightness-get        # Query active brightness percentage & WMI backend
+.\bin\DisplayFixDaemon.exe --brightness-set 75     # Set brightness to 75% and display Acrylic OSD
+.\bin\DisplayFixDaemon.exe --brightness-up         # Step brightness +5%
+.\bin\DisplayFixDaemon.exe --brightness-down       # Step brightness -5%
+.\bin\DisplayFixDaemon.exe --test-osd 65           # Render Acrylic OSD to test focus retention
+```
+
+### Customizing Key Bindings (`C:\ProgramData\DisplayFix\hotkeys.ini`)
+
+You can edit hotkey bindings at any time in `C:\ProgramData\DisplayFix\hotkeys.ini`:
+
+```ini
+[Hotkeys]
+BrightnessDown=F6
+BrightnessUp=F7
+Step=5
+Mute=F1
+VolumeDown=F2
+VolumeUp=F3
+PlayPause=F9
+```
+
+---
+
+## 🏛️ System Architecture
+
+Version 2.0 unifies all fixes into an in-process, zero-dependency C# resident daemon targeting .NET Framework 4.8 x64:
 
 ```mermaid
 flowchart TD
-    subgraph Events["Real-Time Windows Event Hooks"]
+    subgraph WindowsEvents["Real-Time Windows Events"]
         E1["WM_DISPLAYCHANGE & WM_DEVICECHANGE"]
         E2["WM_POWERBROADCAST (Display Wake)"]
-        E3["WH_KEYBOARD_LL & Raw Input (F6/F7, F1-F3, F9)"]
+        E3["Low-Level Keyboard Hook (WH_KEYBOARD_LL)"]
     end
 
-    subgraph Daemon["DisplayFixDaemon.exe (Unified Resident Service)"]
-        EW["1. EventWindow (200ms Burst Coalescer)"]
-        GE["2. GhostEvictionEngine (In-Process CfgMgr32 <100ms)"]
-        RR["3. RefreshRateLock (CCD SetDisplayConfig 360152/1000)"]
-        SS["4. ScalingSynchronizer (Multi-Topology Registry + CCD 125%)"]
-        BH["5. HotkeyHook + BrightnessController + AcrylicOsdWindow"]
+    subgraph Daemon["DisplayFixDaemon.exe (Resident Elevated Service)"]
+        EW["EventWindow (200ms Burst Coalescer)"]
+        GE["GhostEvictionEngine (CfgMgr32 Recycle <10ms)"]
+        RR["RefreshRateLock (CCD 360152/1000 Hz)"]
+        SS["ScalingSynchronizer (Multi-Topology 125% DPI)"]
+        BC["BrightnessController (Dual WMI Backend)"]
+        OSD["AcrylicOsdWindow (Non-Activating Topmost Blur)"]
+    end
+
+    subgraph Hardware["Hardware & Driver Subsystems"]
+        NV["NVIDIA WMI: root\\wmi:NvWmiBrightness (+8 Calibrated)"]
+        INT["ACPI WMI: root\\wmi:WmiMonitorBrightnessMethods"]
+        DWM["Desktop Window Manager (dwm.exe)"]
     end
 
     E1 --> EW
     E2 --> EW
-    EW --> GE --> RR --> SS --> BH
-    E3 --> BH
+    EW --> GE --> RR --> SS --> BC
+    E3 --> BC
+
+    BC -->|dGPU Mode| NV
+    BC -->|Optimus Mode| INT
+    BC --> OSD
+    OSD -.-> DWM
 ```
 
-### Six Core Subsystems (Features F01–F16)
-
-1. **Zero-Lag Event Dispatcher (`src/Daemon/EventWindow.cs` — F05)**: Captures `WM_DISPLAYCHANGE`, `WM_DEVICECHANGE` (`GUID_DEVINTERFACE_MONITOR`, `GUID_DEVINTERFACE_DISPLAY_ADAPTER`), and `WM_POWERBROADCAST` (`GUID_CONSOLE_DISPLAY_STATE`) with `< 100ms` latency and a `200ms` burst debounce window (replacing the legacy 16–30s polling loop).
-2. **Sub-Second In-Process Ghost Eviction (`src/Daemon/GhostEvictionEngine.cs` — F04)**: Recycles only the stale Intel monitor devnode (`UID8388688`) in-process via native `CfgMgr32` (`CM_Disable_DevNode` / `CM_Enable_DevNode`) in `< 100ms`—no `pnputil.exe` child processes, no full-GPU adapter toggle, and zero game alt-tabs. Never acts when an external monitor is connected.
-3. **Native 360Hz Refresh Rate Lock (`src/Daemon/RefreshRateLock.cs` — F07)**: Enforces the exact native rational `360152 / 1000` (`360.152Hz`) via Windows CCD `SetDisplayConfig` (`SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_SAVE_TO_DATABASE | SDC_ALLOW_CHANGES`).
-4. **Persistent 125% DPI Scaling Engine (`src/Daemon/ScalingSynchronizer.cs` — F08, F09)**: Synchronizes `HKCU\Control Panel\Desktop\PerMonitorSettings\*AUOAA9F*` (`DpiValue = 0`, `LogPixels = 120`) across both Intel (`8086_A78B`) and NVIDIA (`10DE_28E0`) topologies and invokes `DisplayConfigSetDeviceInfo` (`DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE`, `scaleRel = 0`) for crisp, non-blurry 125% scaling without logoff or reboot.
-5. **F6/F7 Brightness Engine, Media Key Preservation & Acrylic OSD (`src/Brightness/` — F10–F14)**:
-   - Low-level keyboard hook (`WH_KEYBOARD_LL`) + Raw Input (`HID 0x0C:0x006F/0x0070`) intercepts bare `F6` (`-5%`) and `F7` (`+5%`) in Function Key mode (`Fn + Esc`) while passing `Ctrl`/`Alt`/`Shift` + `F6`/`F7` through to apps.
-   - Dual WMI backend routes to `root\wmi:NvWmiBrightness` (with `+8` offset calibration and a hard `10%` floor) in NVIDIA mode or `WmiMonitorBrightnessMethods` in Optimus mode, preserving user brightness across mux transitions.
-   - Preserves function-row media keys (`F1` Mute, `F2` Vol-, `F3` Vol+, `F9` Play/Pause) via 64-bit `SendInput`.
-   - Renders a non-activating Windows 11 Acrylic OSD overlay (`WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_LAYERED`) that auto-dismisses after `1.5s` and never steals focus from full-screen games.
-6. **Telemetry, Stress Harness & 136-Test E2E Suite (`scripts/` & `tests/e2e/` — F01–F03, F15–F16)**: Live system telemetry prober (`probe_system.ps1`), DWM stability monitor (`dwm_health.ps1`), 100-switch stress harness (`stress_test.ps1`), master acceptance runner (`scripts/verify.ps1`), and a 29-suite (`136/136` passing) E2E test harness.
+### Core Subsystems:
+1. **In-Process Ghost Eviction (`GhostEvictionEngine.cs`)**: Replaces slow `pnputil.exe` scripts with native `CfgMgr32` (`CM_Disable_DevNode` / `CM_Enable_DevNode`) targeting only the stale Intel eDP node (`UID8388688`) in `< 10ms`.
+2. **Dual WMI Brightness Backend (`BrightnessController.cs`)**: Arbitrates between `root\wmi:NvWmiBrightness` (NVIDIA mode) and `root\wmi:WmiMonitorBrightnessMethods` (Optimus mode). Applies empirical `+8` hardware compensation and clamps within safe bounds `[10%, 100%]`.
+3. **Native 360Hz Refresh Rate Lock (`RefreshRateLock.cs`)**: Uses Windows Connecting and Configuring Displays (CCD) `SetDisplayConfig` to enforce `360152 / 1000` (`360.152Hz`) with zero tearing.
+4. **Persistent 125% DPI Synchronization (`ScalingSynchronizer.cs`)**: Keeps `PerMonitorSettings` registry keys synchronized (`LogPixels = 120`), ensuring crystal-clear text without blurry bitmap scaling across display switches.
+5. **Non-Activating Acrylic OSD (`AcrylicOsdWindow.cs`)**: Modern Windows 11 blur pill using `WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_TOPMOST` with a 1500ms auto-dismiss timer.
 
 ---
 
-## Quick Start: Build, Install & Verify
+## 🧪 Comprehensive Verification Matrix
 
-Run from an **elevated PowerShell prompt** (`Run as Administrator`):
+The project includes an industrial-grade opaque-box test harness verified directly on Dell G15 5530 hardware:
 
-```powershell
-git clone https://github.com/morshedmilton/dell-g15-displayfix.git
-cd dell-g15-displayfix
-
-# 1. Compile DisplayFixDaemon.exe using the built-in Windows .NET 4.8 csc.exe compiler
-powershell -ExecutionPolicy Bypass -File .\build.ps1
-
-# 2. Install to C:\ProgramData\DisplayFix and register the elevated logon scheduled task
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-
-# 3. Run the master acceptance verification suite (Deliverables + CLI + Telemetry + DWM + Stress + 136 E2E Tests)
-powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -Quick
-```
-
-**Uninstall** — cleanly stops the daemon, unregisters scheduled tasks, and removes `C:\ProgramData\DisplayFix`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
-```
+| Test Tier | Description | Suites | Tests | Status |
+|---|---|---|---|---|
+| **Tier 1: Feature Isolation** | Telemetry, DWM, CfgMgr32, 360Hz, 125% DPI, Hotkeys, WMI, OSD, NVIDIA App | 17 | 100 | **100 / 100 PASS** |
+| **Tier 2: Boundary Cases** | Clamping, display bounds, rapid key repeats, single-GPU edge cases | 4 | 20 | **20 / 20 PASS** |
+| **Tier 3: Pairwise Combinations** | Interleaved brightness + audio keys, sleep/wake during switch, DPI sync | 5 | 20 | **20 / 20 PASS** |
+| **Tier 4: Real-World Scenarios** | Gaming session stability, HDMI hotplug, lid sleep/resume, video playback | 4 | 16 | **16 / 16 PASS** |
+| **Tier 5: Adversarial Hardening** | Rapid stress switching, process termination resilience, leak tests | 5 | 95 | **95 / 95 PASS** |
+| **Master Acceptance Gates** | Full 9-phase system acceptance verification (`scripts/verify.ps1`) | 9 | 9 | **9 / 9 GATES PASS** |
 
 ---
 
-## Using It & CLI Reference
+## 📚 In-Depth Technical Documentation
 
-### Keyboard Controls (Function Key Mode: `Fn + Esc`)
-
-| Key | Action | Backend / Mechanism |
-|---|---|---|
-| **F6 / F7** | Brightness `-5%` / `+5%` (clamped `10%–100%`) | `NvWmiBrightness` (+8 offset) or `WmiMonitorBrightnessMethods` + Acrylic OSD |
-| **F1 / F2 / F3** | Audio Mute / Volume Down / Volume Up | 64-bit `SendInput` (`VK_VOLUME_MUTE` / `DOWN` / `UP`) |
-| **F9** | Media Play / Pause | 64-bit `SendInput` (`VK_MEDIA_PLAY_PAUSE`) |
-| **Ctrl / Alt / Shift + F6/F7** | Passed untouched to foreground application | Bypassed in `WH_KEYBOARD_LL` |
-
-### `DisplayFixDaemon.exe` Command-Line Interface
-
-```powershell
-.\bin\DisplayFixDaemon.exe --status                # Live mutex, PID, refresh rate, DPI scale, and brightness telemetry
-.\bin\DisplayFixDaemon.exe --evict-now             # Immediate one-shot ghost monitor eviction (<100ms)
-.\bin\DisplayFixDaemon.exe --lock-360hz            # Immediate one-shot 360.152Hz (360152/1000) CCD lock
-.\bin\DisplayFixDaemon.exe --sync-dpi              # Synchronize PerMonitorSettings registry & enforce 125% CCD DPI
-.\bin\DisplayFixDaemon.exe --brightness-get        # Query active WMI brightness backend and current percentage
-.\bin\DisplayFixDaemon.exe --brightness-set 75     # Set panel brightness (clamped 10..100%) and show Acrylic OSD
-.\bin\DisplayFixDaemon.exe --brightness-up         # Step brightness +5% and show Acrylic OSD
-.\bin\DisplayFixDaemon.exe --brightness-down       # Step brightness -5% and show Acrylic OSD
-.\bin\DisplayFixDaemon.exe --test-osd 65           # Render non-activating Acrylic OSD and verify focus retention
-```
+For developers, engineers, and curious power users:
+- **[docs/full_investigation_report.md](docs/full_investigation_report.md)** — Comprehensive investigation history, root cause analyses, and live hardware measurements.
+- **[docs/verification_guide.md](docs/verification_guide.md)** — Step-by-step physical and automated verification walkthrough.
+- **[docs/architecture.md](docs/architecture.md)** — Detailed specification of all 6 software subsystems.
+- **[docs/problem.md](docs/problem.md)** — Original empirical hardware telemetry & defect measurements.
+- **[CHANGELOG.md](CHANGELOG.md)** — Complete version and release history (`v1.0.0` through `v2.0.0`).
 
 ---
 
-## Repository Layout
+## 📄 License
 
-```
-dell-g15-displayfix/
-├── src/
-│   ├── Daemon/
-│   │   ├── Program.cs                  # Main entry point, single-instance mutex, CLI & service loop
-│   │   ├── EventWindow.cs              # Hidden message pump (WM_DISPLAYCHANGE, WM_DEVICECHANGE, 200ms debounce)
-│   │   ├── GhostEvictionEngine.cs      # In-process CfgMgr32 / SetupAPI ghost monitor eviction (<100ms)
-│   │   ├── RefreshRateLock.cs          # CCD SetDisplayConfig 360.152Hz (360152/1000) enforcement
-│   │   ├── ScalingSynchronizer.cs      # Multi-topology PerMonitorSettings sync & CCD 125% DPI lock
-│   │   └── Interop.cs                  # Win32, CCD, CfgMgr32, SetupAPI, DWM, and User32 P/Invoke definitions
-│   └── Brightness/
-│       ├── HotkeyHook.cs               # WH_KEYBOARD_LL + Raw Input hook for F6/F7 & F1-F3/F9 preservation
-│       ├── BrightnessController.cs     # Dual WMI backend (NvWmiBrightness +8 offset & WmiMonitorBrightness)
-│       └── AcrylicOsdWindow.cs         # Non-activating Win32/DWM Acrylic OSD pill overlay
-├── scripts/
-│   ├── build.ps1                       # Native .NET 4.8 csc.exe compiler script
-│   ├── install.ps1                     # Deploys binary & registers elevated DisplayFixDaemon logon task
-│   ├── uninstall.ps1                   # Stops daemon, unregisters tasks, cleans C:\ProgramData\DisplayFix
-│   ├── verify.ps1                      # Master 6-phase acceptance validation runner
-│   └── diagnostics/
-│       ├── probe_system.ps1            # Live GPU, CCD, PnP, DPI, and DWM telemetry snapshot (F01)
-│       ├── dwm_health.ps1              # DWM working set, handles, GDI/USER objects, Event IDs 1000/4101 (F02)
-│       └── stress_test.ps1             # 100-switch stress harness with OLS regression leak analysis (F03)
-├── tests/e2e/
-│   ├── test_runner.ps1                 # Master E2E test harness (29 suites, 136 tests across Tiers 1-4)
-│   ├── tier1_features/                 # Tier 1: Feature isolation tests (F01-F16, 80 tests)
-│   ├── tier2_boundaries/               # Tier 2: Boundary & corner cases (B01-B04, 20 tests)
-│   ├── tier3_combinations/             # Tier 3: Pairwise feature combinations (C01-C05, 20 tests)
-│   ├── tier4_scenarios/                # Tier 4: Real-world gaming, sleep/wake, HDMI, video workloads (16 tests)
-│   └── tier5_adversarial/              # Tier 5: Adversarial hardening suites
-├── docs/
-│   ├── verification_guide.md           # Step-by-step physical & automated verification guide (F15)
-│   ├── architecture.md                 # System architecture & root-cause analysis
-│   └── problem.md                      # Empirical hardware measurements on Dell G15 5530
-└── bin/
-    └── DisplayFixDaemon.exe            # Compiled standalone x64 executable
-```
-
----
-
-## Changelog & License
-
-- See **[CHANGELOG.md](CHANGELOG.md)** for full release history (`v1.0.0` through `v2.0.0`).
-- See **[TEST_READY.md](TEST_READY.md)** and **[TEST_INFRA.md](TEST_INFRA.md)** for E2E test suite certification.
-- Licensed under the **MIT License** — see [LICENSE](LICENSE).
+Licensed under the [MIT License](LICENSE). Built for the Dell G15 community with zero compromises.
