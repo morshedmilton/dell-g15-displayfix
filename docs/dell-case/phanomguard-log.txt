@@ -1,0 +1,46 @@
+﻿2026-11-05 00:54:26  === start (once mode) ===
+2026-11-05 00:54:26  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 00:54:26  === end (once mode) ===
+2026-11-05 00:54:37  === start (once mode) ===
+2026-11-05 00:54:37  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 00:54:37  === end (once mode) ===
+2026-11-05 00:54:47  === start (once mode) ===
+2026-11-05 00:54:47  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 00:54:47  scan: activePaths=1 allInternal=False [(unknown)]
+2026-11-05 00:54:47  === end (once mode) ===
+2026-11-05 00:55:36  === start (once mode) ===
+2026-11-05 00:55:36  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 00:55:37  scan: activePaths=1 allInternal=False [paths=1 present=1 [AUOAA9F/5&39808DAE&2&UID4353]]
+2026-11-05 00:55:37  === end (once mode) ===
+2026-11-05 00:56:30  === start ===
+2026-11-05 00:56:30  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:03:41  === start ===
+2026-11-05 01:03:41  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:03:44  another instance is already running - exit
+2026-11-05 01:03:58  === start (once mode) ===
+2026-11-05 01:03:58  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:03:58  scan: activePaths=1 allInternal=True [paths=1 present=1 [AUOAA9F/5&39808DAE&2&UID4353]]
+2026-11-05 01:03:58  === end (once mode) ===
+2026-11-05 01:04:00  === start ===
+2026-11-05 01:04:00  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:13:25  === start (once mode) ===
+2026-11-05 01:13:25  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:13:25  scan: 1 path(s); present: AUOAA9F/5&39808DAE&2&UID4353  -> duplicate=False
+2026-11-05 01:13:25  === end (once mode) ===
+2026-11-05 01:13:27  === start ===
+2026-11-05 01:13:27  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:39:14  === start ===
+2026-11-05 01:39:14  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 01:39:31  duplicate internal path detected (1/2) 1 path(s); present: AUOAA9F/4&3A9F8B26&8&UID8388688 AUOAA9F/5&39808DAE&2&UID4353
+2026-11-05 01:39:39  duplicate internal path detected (2/2) 1 path(s); present: AUOAA9F/4&3A9F8B26&8&UID8388688 AUOAA9F/5&39808DAE&2&UID4353
+2026-11-05 01:39:39  REPAIR starting
+2026-11-05 01:39:39    adapter: PCI\VEN_8086&DEV_A78B&SUBSYS_0BF71028&REV_04\3&11583659&0&10
+2026-11-05 01:39:39    pnputil /disable-device -> exit 0
+2026-11-05 01:39:44    pnputil /enable-device -> exit 0
+2026-11-05 01:39:51  REPAIR done - active paths now 1 [1 path(s); present: AUOAA9F/5&39808DAE&2&UID4353]
+2026-11-05 02:28:43  === start ===
+2026-11-05 02:28:43  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 02:34:57  === start ===
+2026-11-05 02:34:57  log file: C:\ProgramData\DisplayFix\logs\guard.log
+2026-11-05 03:21:54  === start ===
+2026-11-05 03:21:54  log file: C:\ProgramData\DisplayFix\logs\guard.log

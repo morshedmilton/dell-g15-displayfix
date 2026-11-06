@@ -1,0 +1,41 @@
+﻿DELL G15 5530 - SYSTEM INFORMATION
+Dumped: 2026-11-05 03:27:07 +06:00
+==================================================================
+Model            : Dell G15 5530
+Manufacturer     : Dell Inc.
+Service Tag      : CYFY434
+System SKU       : 0BF7
+BIOS             : 1.36.0  (08/26/2026 06:00:00)
+OS               : Microsoft Windows 11 Pro build 26300
+CPU              : 13th Gen Intel(R) Core(TM) i7-13650HX
+RAM              : 15.7 GB
+
+GRAPHICS
+------------------------------------------------------------------
+  Intel(R) UHD Graphics
+     driver 32.0.101.7088  date 06/17/2026 06:00:00  status OK
+  NVIDIA GeForce RTX 4060 Laptop GPU
+     driver 32.0.16.1687  date 09/02/2026 06:00:00  status OK
+
+NVIDIA PLATFORM CONTROLLERS AND FRAMEWORK
+------------------------------------------------------------------
+  NVIDIA Platform Controllers and Framework = 32.0.16.1534
+
+CURRENT DISPLAY STATE
+------------------------------------------------------------------
+  nvidia-smi display_active : Enabled
+  monitor devices (OK)      : 1
+  WmiMonitorBrightness      : 0
+
+MONITOR DEVICES (all instances)
+------------------------------------------------------------------
+  [Unknown] Integrated Monitor
+      DISPLAY\AUOAA9F\4&3A9F8B26&8&UID8388688
+  [Unknown] Generic Monitor
+      DISPLAY\AUOAA9F\1&8713BCA&0&UID0
+  [Unknown] Integrated Monitor
+      DISPLAY\AUOAA9F\4&3A9F8B26&8&UID0
+  [OK] Generic Monitor
+      DISPLAY\AUOAA9F\5&39808DAE&2&UID4353
+  [Unknown] Generic Monitor
+      DISPLAY\DEFAULT_MONITOR\1&8713BCA&0&UID0

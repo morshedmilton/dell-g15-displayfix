@@ -1,0 +1,15 @@
+﻿date,scenario,display_mode,display_active,monitor_devices,wmi_brightness_interfaces,dwm_cpu_percent,note
+2026-11-03,NVIDIA-only with stale Intel monitor,NVIDIA-only,Enabled,2,1,34.9,duplicate Integrated Monitor present
+2026-11-03,NVIDIA-only with stale Intel monitor,NVIDIA-only,Enabled,2,1,38.5,duplicate Integrated Monitor present
+2026-11-03,NVIDIA-only with stale Intel monitor,NVIDIA-only,Enabled,2,1,42.7,duplicate Integrated Monitor present
+2026-11-03,after disabling and re-enabling Intel adapter,NVIDIA-only,Enabled,1,0,1.0,duplicate cleared; brightness interface lost
+2026-11-03,after disabling and re-enabling Intel adapter,NVIDIA-only,Enabled,1,0,1.8,duplicate cleared; brightness interface lost
+2026-11-04,Optimus baseline,Optimus,Disabled,1,1,1.0,panel on integrated GPU
+2026-11-04,Optimus baseline,Optimus,Disabled,1,1,1.8,panel on integrated GPU
+2026-11-04,Automatic mode - game running (54 samples),Automatic,Enabled,2,1,19.2,mean over gameplay; peak 37.0
+2026-11-04,Automatic mode - game fullscreen (54 samples),Automatic,Enabled,2,1,33.5,mean over gameplay; peak 54.0
+2026-11-05,after clean install of Dell driver A17 + NVPCF 615.34,Automatic,Enabled,2,1,36.8,generic NVIDIA driver removed first
+2026-11-05,after clean install of Dell driver A17 + NVPCF 615.34,Automatic,Enabled,2,1,31.2,generic NVIDIA driver removed first
+2026-11-05,after clean install of Dell driver A17 + NVPCF 615.34,Automatic,Enabled,2,1,32.3,generic NVIDIA driver removed first
+2026-11-05,duplicate cleared on the same session,Automatic,Enabled,1,0,1.4,same panel still on NVIDIA GPU
+2026-11-05,Optimus after the session,Optimus,Disabled,1,1,0.0,back to integrated GPU
